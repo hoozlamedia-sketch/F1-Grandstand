@@ -1,69 +1,48 @@
-import Layout from '../components/Layout'
-import { GetStaticProps } from 'next'
-import React from 'react'
+import Layout from "../components/Layout"
+import type { GetStaticProps } from "next"
 
-type Video = {
-  id: string
-  title: string
-  description?: string
-  thumbnail?: string
-  publishedAt: string
-  live?: boolean
+type Video = { id: string; title: string; publishedAt: string; live?: boolean }
+
+type Props = {
+  channelId: string
+  videos: Video[]
+  hasApiKey: boolean
 }
 
-type Props = { videos: Video[] }
-
 const CHANNEL_ID = "UCh31mRik5zu2JNIC-oUCBjg"
-const API_KEY = process.env.NEXT_PUBLIC_YT_API_KEY || ""
+const YT_API_KEY = process.env.NEXT_PUBLIC_YT_API_KEY || ""
 
-export default function VideosPage({ videos }: Props) {
-  const itemList = {
-    "@context": "https://schema.org",
-    "@type": "ItemList",
-    "itemListElement": videos.map((v, i) => ({
-      "@type": "ListItem",
-      "position": i + 1,
-      "item": {
-        "@type": "VideoObject",
-        "name": v.title,
-        "description": v.description || v.title,
-        "thumbnailUrl": v.thumbnail,
-        "uploadDate": v.publishedAt,
-        "embedUrl": `https://www.youtube.com/embed/${v.id}`,
-        "url": `https://www.youtube.com/watch?v=${v.id}`,
-        "publisher": {
-          "@type": "Organization",
-          "name": "F1 Grandstand",
-          "logo": {
-            "@type": "ImageObject",
-            "url": "/F1-GRANDSTAND-LOGO-NEW.png"
-          }
-        },
-        ...(v.live ? {
-          "liveBroadcast": {
-            "@type": "BroadcastEvent",
-            "isLiveBroadcast": true,
-            "startDate": v.publishedAt
-          }
-        } : {})
-      }
-    }))
-  }
-
+export default function Videos({ channelId, videos, hasApiKey }: Props) {
   return (
-    <Layout>
-      <head>
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(itemList) }} />
-      </head>
-      <section className="max-w-6xl mx-auto px-4 py-12">
-        <h1 className="text-3xl md:text-4xl font-extrabold mb-8" style={{ color: '#f5e9c8' }}>All Videos</h1>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <Layout title="Videos" description="Latest Formula 1 videos from the F1 Grandstand YouTube channel.">
+      <section className="mx-auto max-w-6xl px-4 py-12 space-y-6">
+        <h1 className="text-3xl font-extrabold" style={{ color: "#f5e9c8" }}>Latest F1 Videos</h1>
+
+        {!hasApiKey && (
+          <p className="text-red-400">
+            Missing YouTube API key. Set <code>NEXT_PUBLIC_YT_API_KEY</code> in your Vercel Project Settings → Environment Variables.
+          </p>
+        )}
+
+        {hasApiKey && videos.length === 0 && (
+          <p className="text-neutral-400">No videos found right now. Please try again shortly.</p>
+        )}
+
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {videos.map(v => (
-            <article key={v.id} className="rounded-3xl overflow-hidden relative" style={{ backgroundColor: '#0f0f0f', border: '1px solid #2a2a2a' }}>
+            <article key={v.id} className="rounded-3xl overflow-hidden relative" style={{ backgroundColor: "#0f0f0f", border: "1px solid #2a2a2a" }}>
               <div className="aspect-video relative">
-                <iframe title={v.title} className="w-full h-full" src={`https://www.youtube.com/embed/${v.id}`} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen />
+                <iframe
+                  title={v.title}
+                  className="w-full h-full"
+                  src={`https://www.youtube.com/embed/${v.id}`}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
                 {v.live && (
-                  <span className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">LIVE</span>
+                  <span className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">
+                    LIVE
+                  </span>
                 )}
               </div>
               <div className="p-4">
@@ -79,40 +58,48 @@ export default function VideosPage({ videos }: Props) {
 }
 
 export const getStaticProps: GetStaticProps<Props> = async () => {
-  const videos: Video[] = []
+  const channelId = CHANNEL_ID
+  const apiKey = YT_API_KEY
+  const hasApiKey = !!apiKey
+
+  if (!hasApiKey) {
+    return { props: { channelId, videos: [], hasApiKey }, revalidate: 300 }
+  }
+
   try {
-    const url = new URL('https://www.googleapis.com/youtube/v3/search')
-    url.searchParams.set('part', 'snippet')
-    url.searchParams.set('channelId', CHANNEL_ID)
-    url.searchParams.set('order', 'date')
-    url.searchParams.set('maxResults', '18')
-    url.searchParams.set('type', 'video')
-    url.searchParams.set('key', API_KEY)
-    const res = await fetch(url.toString())
-    if (res.ok) {
-      const data = await res.json()
-      const ids = (data.items || []).map((it: any) => it.id.videoId).join(",")
-      let liveMap: Record<string, boolean> = {}
-      try {
-        const vres = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${ids}&key=${API_KEY}`)
-        if (vres.ok) {
-          const vd = await vres.json()
-          vd.items.forEach((v: any) => {
-            if (v.snippet.liveBroadcastContent === "live") liveMap[v.id] = true
-          })
-        }
-      } catch {}
-      for (const it of data.items || []) {
-        videos.push({
-          id: it.id.videoId,
-          title: it.snippet.title,
-          description: it.snippet.description,
-          thumbnail: it.snippet.thumbnails?.high?.url,
-          publishedAt: it.snippet.publishedAt,
-          live: liveMap[it.id.videoId] || false
+    const sUrl = new URL("https://www.googleapis.com/youtube/v3/search")
+    sUrl.searchParams.set("part", "snippet")
+    sUrl.searchParams.set("channelId", channelId)
+    sUrl.searchParams.set("order", "date")
+    sUrl.searchParams.set("maxResults", "9")
+    sUrl.searchParams.set("type", "video")
+    sUrl.searchParams.set("key", apiKey)
+    const sRes = await fetch(sUrl.toString())
+    if (!sRes.ok) throw new Error("Search failed")
+    const sData = await sRes.json()
+    const items = sData.items || []
+    const ids = items.map((it: any) => it?.id?.videoId).filter(Boolean).join(",")
+
+    let liveMap: Record<string, boolean> = {}
+    if (ids) {
+      const vRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${ids}&key=${apiKey}`)
+      if (vRes.ok) {
+        const vData = await vRes.json()
+        vData.items?.forEach((v: any) => {
+          if (v?.snippet?.liveBroadcastContent === "live") liveMap[v.id] = true
         })
       }
     }
-  } catch {}
-  return { props: { videos }, revalidate: 300 }
+
+    const videos: Video[] = (items || []).map((it: any) => ({
+      id: it.id.videoId,
+      title: it.snippet.title,
+      publishedAt: it.snippet.publishedAt,
+      live: !!liveMap[it.id.videoId]
+    }))
+
+    return { props: { channelId, videos, hasApiKey }, revalidate: 300 }
+  } catch {
+    return { props: { channelId, videos: [], hasApiKey }, revalidate: 300 }
+  }
 }
