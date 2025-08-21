@@ -9,24 +9,26 @@ import React, { useEffect, useState } from 'react'
 type SEOVideo = {
   id: string;
   title: string;
-  description?: string;
-  thumbnail?: string;
-  publishedAt?: string;
+  description?: string | null;
+  thumbnail?: string | null;
+  publishedAt?: string | null;
   live?: boolean;
-  liveStart?: string;
+  liveStart?: string | null;
+}
+
+type Featured = {
+  id: string
+  title: string
+  description?: string | null
+  thumbnail?: string | null
+  publishedAt?: string | null
+  live?: boolean
+  liveStart?: string | null
 }
 
 type Props = { 
   news: NewsItem[]; 
-  featured?: { 
-    id: string; 
-    title: string; 
-    description?: string; 
-    thumbnail?: string; 
-    publishedAt?: string; 
-    live?: boolean;
-    liveStart?: string;
-  };
+  featured: Featured | null;   // <— never undefined
   videosSeo: SEOVideo[];
 }
 
@@ -53,7 +55,7 @@ export default function Home({ news, featured, videosSeo }: Props) {
                     "name": v.title,
                     "description": v.description || v.title,
                     "thumbnailUrl": v.thumbnail ? [v.thumbnail] : undefined,
-                    "uploadDate": v.publishedAt,
+                    "uploadDate": v.publishedAt || undefined,
                     "embedUrl": `https://www.youtube.com/embed/${v.id}`,
                     "url": `https://www.youtube.com/watch?v=${v.id}`,
                     "publisher": {
@@ -67,7 +69,7 @@ export default function Home({ news, featured, videosSeo }: Props) {
                     "liveBroadcast": v.live ? {
                       "@type": "BroadcastEvent",
                       "isLiveBroadcast": true,
-                      "startDate": v.liveStart || v.publishedAt
+                      "startDate": v.liveStart || v.publishedAt || undefined
                     } : undefined
                   }
                 }))
@@ -89,7 +91,7 @@ export default function Home({ news, featured, videosSeo }: Props) {
                 "name": featured.title,
                 "description": featured.description || featured.title,
                 "thumbnailUrl": featured.thumbnail ? [featured.thumbnail] : undefined,
-                "uploadDate": featured.publishedAt,
+                "uploadDate": featured.publishedAt || undefined,
                 "embedUrl": featured.id ? `https://www.youtube.com/embed/${featured.id}` : undefined,
                 "url": featured.id ? `https://www.f1grandstand.com/videos/${featured.id}` : undefined,
                 "publisher": {
@@ -103,7 +105,7 @@ export default function Home({ news, featured, videosSeo }: Props) {
                 "liveBroadcast": featured.live ? {
                   "@type": "BroadcastEvent",
                   "isLiveBroadcast": true,
-                  "startDate": featured.liveStart || featured.publishedAt
+                  "startDate": featured.liveStart || featured.publishedAt || undefined
                 } : undefined
               })
             }}
@@ -217,7 +219,7 @@ export default function Home({ news, featured, videosSeo }: Props) {
           <Link
             href="/news"
             className="inline-block rounded-2xl px-5 py-3"
-            style={{ backgroundColor: '#181818', border: '1px solid #2a2a2a' }}
+            style={{ backgroundColor: '#181818', border: '1px solid '#2a2a2a' }}
           >
             More F1 news →
           </Link>
@@ -232,26 +234,16 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
   const channelId = CHANNEL_ID
   const apiKey = process.env.NEXT_PUBLIC_YT_API_KEY || YT_API_KEY
 
-  let featured:
-    | {
-        id: string
-        title: string
-        description?: string
-        thumbnail?: string
-        publishedAt?: string
-        live?: boolean
-        liveStart?: string
-      }
-    | undefined = undefined
+  let featured: Featured | null = null
 
   let gridVideos: Array<{
     id: string
     title: string
-    description?: string
-    thumbnail?: string
-    publishedAt?: string
+    description?: string | null
+    thumbnail?: string | null
+    publishedAt?: string | null
     live?: boolean
-    startTime?: string
+    startTime?: string | null
   }> = []
 
   try {
@@ -290,23 +282,24 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
         const live = det?.liveBroadcastContent === 'live'
         const thumbs = det?.thumbnails || sn?.thumbnails || {}
         const thumb =
-          thumbs.maxres?.url ||
-          thumbs.standard?.url ||
-          thumbs.high?.url ||
-          thumbs.medium?.url ||
-          thumbs.default?.url ||
-          ''
+          thumbs?.maxres?.url ||
+          thumbs?.standard?.url ||
+          thumbs?.high?.url ||
+          thumbs?.medium?.url ||
+          thumbs?.default?.url ||
+          null
+
         return {
           id,
           title: sn.title,
-          description: sn.description,
+          description: sn.description ?? null,
           thumbnail: thumb,
-          publishedAt: sn.publishedAt,
+          publishedAt: sn.publishedAt ?? null,
           live,
           startTime:
-            detailsById[id]?.liveStreamingDetails?.actualStartTime ||
-            detailsById[id]?.liveStreamingDetails?.scheduledStartTime ||
-            undefined
+            detailsById[id]?.liveStreamingDetails?.actualStartTime ??
+            detailsById[id]?.liveStreamingDetails?.scheduledStartTime ??
+            null
         }
       })
 
@@ -322,8 +315,6 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
           live: !!f.live,
           liveStart: f.startTime ?? null
         }
-      } else {
-        featured = null as any
       }
     }
   } catch {
@@ -331,24 +322,14 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
   }
 
   // Build JSON-LD array for the 9 videos
-  const publisher = {
-    "@type": "Organization",
-    "name": "F1 Grandstand",
-    "url": "https://www.f1grandstand.com",
-    "logo": {
-      "@type": "ImageObject",
-      "url": "https://www.f1grandstand.com/F1-GRANDSTAND-LOGO-NEW.png"
-    }
-  }
-
   const videoSchemas: SEOVideo[] = gridVideos.map(v => ({
     id: v.id,
     title: v.title,
-    description: v.description,
-    thumbnail: v.thumbnail,
-    publishedAt: v.publishedAt,
+    description: v.description ?? null,
+    thumbnail: v.thumbnail ?? null,
+    publishedAt: v.publishedAt ?? null,
     live: v.live,
-    liveStart: v.startTime
+    liveStart: v.startTime ?? null
   }))
 
   return { props: { news, featured: featured ?? null, videosSeo: videoSchemas }, revalidate: 300 }
@@ -477,9 +458,5 @@ function NewsGrid({ items }: { items: NewsItem[] }) {
 
 function formatDate(d?: string) {
   if (!d) return ''
-  try {
-    return new Date(d).toLocaleString()
-  } catch {
-    return ''
-  }
+  try { return new Date(d).toLocaleString() } catch { return '' }
 }
