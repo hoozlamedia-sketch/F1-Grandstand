@@ -219,7 +219,7 @@ export default function Home({ news, featured, videosSeo }: Props) {
           <Link
             href="/news"
             className="inline-block rounded-2xl px-5 py-3"
-            style={{ backgroundColor: '#181818', border: '1px solid '#2a2a2a' }}
+            style={{ backgroundColor: '#181818', border: '1px solid #2a2a2a' }}
           >
             More F1 news →
           </Link>
