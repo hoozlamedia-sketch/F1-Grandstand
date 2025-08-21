@@ -11,13 +11,11 @@ export default function About() {
           About F1 Grandstand
         </h1>
         <p className="text-neutral-300">
-          F1 Grandstand brings you the latest Formula 1 news, transfer rumours, live reactions,
-          and no-nonsense analysis — plus fresh YouTube videos every week. We cover the driver
-          market, team politics, technical storylines, and the big weekend talking points.
+          F1 Grandstand brings you daily Formula 1 news, transfer rumors, and sharp video analysis.
+          Follow along for everything from race strategy breakdowns to paddock gossip.
         </p>
         <p className="text-neutral-300">
-          Subscribe on YouTube (<a className="underline" href="https://www.youtube.com/@F1Grandstand" target="_blank" rel="noopener">F1 Grandstand</a>)
-          and follow along for daily updates.
+          Subscribe on YouTube and check the site for the latest F1 headlines from trusted sources.
         </p>
       </section>
     </Layout>
