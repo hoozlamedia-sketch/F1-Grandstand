@@ -26,19 +26,21 @@ type Featured = {
   liveStart?: string | null
 }
 
-type Props = { 
-  news: NewsItem[]; 
-  featured: Featured | null;   // <— never undefined
+type Video = { id: string; title: string; publishedAt: string; live?: boolean }
+
+type Props = {
+  news: NewsItem[];
+  featured: Featured | null;
   videosSeo: SEOVideo[];
+  initialVideos: Video[]; // SSR-provided for reliable rendering
 }
 
 const CHANNEL_ID = "UCh31mRik5zu2JNIC-oUCBjg"
 const YT_API_KEY = process.env.NEXT_PUBLIC_YT_API_KEY || "AIzaSyCytjJ7EwAlPZ8FId1YJsEbz6cYv3VL7_E"
 
-export default function Home({ news, featured, videosSeo }: Props) {
+export default function Home({ news, featured, videosSeo, initialVideos }: Props) {
   return (
     <Layout>
-      {/* JSON-LD: ItemList for the 9 videos on the page */}
       <Head>
         {Array.isArray(videosSeo) && videosSeo.length > 0 && (
           <script
@@ -79,7 +81,6 @@ export default function Home({ news, featured, videosSeo }: Props) {
         )}
       </Head>
 
-      {/* JSON-LD: Featured video (latest) */}
       <Head>
         {featured && (
           <script
@@ -114,12 +115,8 @@ export default function Home({ news, featured, videosSeo }: Props) {
       </Head>
 
       <header className="relative overflow-hidden">
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(80% 60% at 50% 0%, rgba(212,179,108,.2), transparent 60%)' }}
-        />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(80% 60% at 50% 0%, rgba(212,179,108,.2), transparent 60%)' }} />
         <div className="max-w-6xl mx-auto px-4 py-10 md:py-16 grid md:grid-cols-2 gap-8 items-center">
-          {/* Left: latest video (mobile + desktop) */}
           <div className="order-2 md:order-1">
             {featured?.live && (
               <div className="mb-2 inline-flex items-center gap-2 text-xs font-bold px-3 py-1 rounded-full bg-red-600 text-white shadow">
@@ -147,12 +144,7 @@ export default function Home({ news, featured, videosSeo }: Props) {
                   <span className="font-semibold" style={{ color: '#f5e9c8' }}>Latest:</span> {featured.title}
                 </p>
                 {featured?.live && (
-                  <a
-                    href={`https://www.youtube.com/watch?v=${featured.id}`}
-                    target="_blank"
-                    rel="noopener"
-                    className="mt-2 inline-block rounded-2xl px-4 py-2 text-sm font-semibold bg-red-600 text-white shadow hover:bg-red-700"
-                  >
+                  <a href={`https://www.youtube.com/watch?v=${featured.id}`} target="_blank" rel="noopener" className="mt-2 inline-block rounded-2xl px-4 py-2 text-sm font-semibold bg-red-600 text-white shadow hover:bg-red-700">
                     💬 Join Live Chat
                   </a>
                 )}
@@ -160,12 +152,8 @@ export default function Home({ news, featured, videosSeo }: Props) {
             )}
           </div>
 
-          {/* Right: brand + CTA */}
           <div className="order-1 md:order-2">
-            <span
-              className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-1 rounded-full"
-              style={{ background: 'linear-gradient(90deg, #d4b36c, #c9a76d)', color: '#0c0c0c' }}
-            >
+            <span className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-1 rounded-full" style={{ background: 'linear-gradient(90deg, #d4b36c, #c9a76d)', color: '#0c0c0c' }}>
               Formula 1 News
             </span>
             <h1 className="text-4xl md:text-6xl font-black leading-tight mt-3" style={{ color: '#f5e9c8' }}>
@@ -175,18 +163,10 @@ export default function Home({ news, featured, videosSeo }: Props) {
               F1 Grandstand delivers breaking Formula 1 news, driver market moves, and sharp analysis — plus fresh videos every week.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
-              <a
-                href="#videos"
-                className="rounded-2xl px-5 py-3 transition inline-flex items-center gap-2 shadow"
-                style={{ backgroundColor: '#181818', border: '1px solid #2a2a2a' }}
-              >
+              <a href="#videos" className="rounded-2xl px-5 py-3 transition inline-flex items-center gap-2 shadow" style={{ backgroundColor: '#181818', border: '1px solid #2a2a2a' }}>
                 <Play className="w-5 h-5" /> Watch Latest Videos
               </a>
-              <a
-                href="#news"
-                className="rounded-2xl px-5 py-3 transition inline-flex items-center gap-2 shadow"
-                style={{ backgroundColor: '#d4b36c', color: '#0c0c0c' }}
-              >
+              <a href="#news" className="rounded-2xl px-5 py-3 transition inline-flex items-center gap-2 shadow" style={{ backgroundColor: '#d4b36c', color: '#0c0c0c' }}>
                 <Newspaper className="w-5 h-5" /> Read F1 News
               </a>
             </div>
@@ -200,27 +180,18 @@ export default function Home({ news, featured, videosSeo }: Props) {
       <section id="videos" className="max-w-6xl mx-auto px-4 py-12">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl md:text-3xl font-extrabold" style={{ color: '#f5e9c8' }}>Latest Videos</h2>
-          <a
-            href="https://www.youtube.com/@F1Grandstand"
-            target="_blank"
-            className="inline-flex items-center gap-2"
-            style={{ color: '#d4b36c' }}
-          >
+          <a href="https://www.youtube.com/@F1Grandstand" target="_blank" className="inline-flex items-center gap-2" style={{ color: '#d4b36c' }}>
             Visit Channel
           </a>
         </div>
-        <VideoGrid channelId={CHANNEL_ID} apiKey={YT_API_KEY} />
+        <VideoGrid channelId={CHANNEL_ID} apiKey={YT_API_KEY} initial={initialVideos} />
       </section>
 
       <section id="news" className="max-w-6xl mx-auto px-4 pb-16">
         <h2 className="text-2xl md:text-3xl font-extrabold mb-6" style={{ color: '#f5e9c8' }}>Latest F1 News</h2>
         <NewsGrid items={news.slice(0, 12)} />
         <div className="mt-8 text-center">
-          <Link
-            href="/news"
-            className="inline-block rounded-2xl px-5 py-3"
-            style={{ backgroundColor: '#181818', border: '1px solid #2a2a2a' }}
-          >
+          <Link href="/news" className="inline-block rounded-2xl px-5 py-3" style={{ backgroundColor: '#181818', border: '1px solid #2a2a2a' }}>
             More F1 news →
           </Link>
         </div>
@@ -235,7 +206,6 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
   const apiKey = process.env.NEXT_PUBLIC_YT_API_KEY || YT_API_KEY
 
   let featured: Featured | null = null
-
   let gridVideos: Array<{
     id: string
     title: string
@@ -247,7 +217,6 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
   }> = []
 
   try {
-    // Fetch latest 9 videos
     const sUrl = new URL('https://www.googleapis.com/youtube/v3/search')
     sUrl.searchParams.set('part', 'snippet')
     sUrl.searchParams.set('channelId', channelId)
@@ -261,17 +230,12 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
       const items = sData.items || []
       const ids = items.map((it: any) => it.id.videoId).join(',')
 
-      // Fetch details for live info and best thumbnails
       let detailsById: Record<string, any> = {}
       if (ids) {
-        const vRes = await fetch(
-          `https://www.googleapis.com/youtube/v3/videos?part=snippet,liveStreamingDetails&id=${ids}&key=${apiKey}`
-        )
+        const vRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,liveStreamingDetails&id=${ids}&key=${apiKey}`)
         if (vRes.ok) {
           const vData = await vRes.json()
-          for (const v of vData.items || []) {
-            detailsById[v.id] = v
-          }
+          for (const v of vData.items || []) detailsById[v.id] = v
         }
       }
 
@@ -281,14 +245,7 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
         const det = detailsById[id]?.snippet || sn
         const live = det?.liveBroadcastContent === 'live'
         const thumbs = det?.thumbnails || sn?.thumbnails || {}
-        const thumb =
-          thumbs?.maxres?.url ||
-          thumbs?.standard?.url ||
-          thumbs?.high?.url ||
-          thumbs?.medium?.url ||
-          thumbs?.default?.url ||
-          null
-
+        const thumb = thumbs?.maxres?.url || thumbs?.standard?.url || thumbs?.high?.url || thumbs?.medium?.url || thumbs?.default?.url || null
         return {
           id,
           title: sn.title,
@@ -296,14 +253,10 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
           thumbnail: thumb,
           publishedAt: sn.publishedAt ?? null,
           live,
-          startTime:
-            detailsById[id]?.liveStreamingDetails?.actualStartTime ??
-            detailsById[id]?.liveStreamingDetails?.scheduledStartTime ??
-            null
+          startTime: detailsById[id]?.liveStreamingDetails?.actualStartTime ?? detailsById[id]?.liveStreamingDetails?.scheduledStartTime ?? null
         }
       })
 
-      // featured = first (newest) item
       const f = gridVideos[0]
       if (f) {
         featured = {
@@ -317,11 +270,8 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
         }
       }
     }
-  } catch {
-    // swallow errors — page will still render with news
-  }
+  } catch {}
 
-  // Build JSON-LD array for the 9 videos
   const videoSchemas: SEOVideo[] = gridVideos.map(v => ({
     id: v.id,
     title: v.title,
@@ -332,14 +282,18 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
     liveStart: v.startTime ?? null
   }))
 
-  return { props: { news, featured: featured ?? null, videosSeo: videoSchemas }, revalidate: 300 }
+  const initialVideos: Video[] = gridVideos.map(v => ({
+    id: v.id,
+    title: v.title,
+    publishedAt: v.publishedAt || new Date().toISOString(),
+    live: v.live
+  }))
+
+  return { props: { news, featured: featured ?? null, videosSeo: videoSchemas, initialVideos }, revalidate: 300 }
 }
 
-// --- Components ---
-type Video = { id: string; title: string; publishedAt: string; live?: boolean }
-
-function VideoGrid({ channelId, apiKey }: { channelId: string; apiKey: string }) {
-  const [videos, setVideos] = useState<Video[]>([])
+function VideoGrid({ channelId, apiKey, initial }: { channelId: string; apiKey: string; initial?: Video[] }) {
+  const [videos, setVideos] = useState<Video[]>(initial || [])
   const [error, setError] = useState<string>('')
 
   useEffect(() => {
@@ -356,13 +310,10 @@ function VideoGrid({ channelId, apiKey }: { channelId: string; apiKey: string })
         if (!res.ok) throw new Error('Failed to fetch videos')
         const data = await res.json()
 
-        // Get live flags for these 9
         const ids = (data.items || []).map((it: any) => it.id.videoId).join(',')
         let liveMap: Record<string, boolean> = {}
         if (ids) {
-          const vres = await fetch(
-            `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${ids}&key=${apiKey}`
-          )
+          const vres = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${ids}&key=${apiKey}`)
           if (vres.ok) {
             const vd = await vres.json()
             vd.items?.forEach((v: any) => {
@@ -379,7 +330,7 @@ function VideoGrid({ channelId, apiKey }: { channelId: string; apiKey: string })
         }))
         setVideos(list)
       } catch (e: any) {
-        setError(e.message || String(e))
+        if (!initial || initial.length === 0) setError(e.message || String(e))
       }
     }
     run()
@@ -389,24 +340,10 @@ function VideoGrid({ channelId, apiKey }: { channelId: string; apiKey: string })
     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
       {error && <p className="text-red-400 text-sm">{error}</p>}
       {videos.map(v => (
-        <article
-          key={v.id}
-          className="rounded-3xl overflow-hidden relative"
-          style={{ backgroundColor: '#0f0f0f', border: '1px solid #2a2a2a' }}
-        >
+        <article key={v.id} className="rounded-3xl overflow-hidden relative" style={{ backgroundColor: '#0f0f0f', border: '1px solid #2a2a2a' }}>
           <div className="aspect-video relative">
-            <iframe
-              title={v.title}
-              className="w-full h-full"
-              src={`https://www.youtube.com/embed/${v.id}`}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-            />
-            {v.live && (
-              <span className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">
-                LIVE
-              </span>
-            )}
+            <iframe title={v.title} className="w-full h-full" src={`https://www.youtube.com/embed/${v.id}`} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen />
+            {v.live && <span className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">LIVE</span>}
           </div>
           <div className="p-4">
             <h3 className="font-semibold leading-snug line-clamp-2">{v.title}</h3>
@@ -416,6 +353,7 @@ function VideoGrid({ channelId, apiKey }: { channelId: string; apiKey: string })
           </div>
         </article>
       ))}
+      {videos.length === 0 && !error && <p className="text-neutral-400 text-sm">No videos found.</p>}
     </div>
   )
 }
@@ -424,32 +362,13 @@ function NewsGrid({ items }: { items: NewsItem[] }) {
   return (
     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
       {items.map((n, idx) => (
-        <article
-          key={idx}
-          className="p-5 rounded-3xl"
-          style={{ backgroundColor: '#0f0f0f', border: '1px solid #2a2a2a' }}
-        >
+        <article key={idx} className="p-5 rounded-3xl" style={{ backgroundColor: '#0f0f0f', border: '1px solid #2a2a2a' }}>
           <a href={n.link} target="_blank" className="block">
-            <h3
-              className="font-semibold text-lg leading-snug hover:underline line-clamp-2"
-              style={{ color: '#f5e9c8' }}
-            >
-              {n.title}
-            </h3>
+            <h3 className="font-semibold text-lg leading-snug hover:underline line-clamp-2" style={{ color: '#f5e9c8' }}>{n.title}</h3>
           </a>
-          <p className="text-xs text-neutral-400 mt-1">
-            {formatDate(n.isoDate)} • {n.source}
-          </p>
+          <p className="text-xs text-neutral-400 mt-1">{formatDate(n.isoDate)} • {n.source}</p>
           {n.excerpt && <p className="text-sm text-neutral-300 mt-3">{n.excerpt}…</p>}
-          <a
-            className="text-sm inline-block mt-3"
-            style={{ color: '#d4b36c' }}
-            href={n.link}
-            target="_blank"
-            rel="noopener"
-          >
-            Read more →
-          </a>
+          <a className="text-sm inline-block mt-3" style={{ color: '#d4b36c' }} href={n.link} target="_blank" rel="noopener">Read more →</a>
         </article>
       ))}
     </div>
