@@ -1,26 +1,15 @@
-import type { NextApiRequest, NextApiResponse } from 'next'
-import { getAllUploadVideoIds } from '../../lib/youtube'
+import type { GetServerSideProps } from 'next'
+const DOMAIN = 'https://www.f1grandstand.com'
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const base = 'https://www.f1grandstand.com'
-  const chunkSize = 1000
-  let count = 0
-  try {
-    const ids = await getAllUploadVideoIds()
-    count = ids.length
-    const chunks = Math.max(1, Math.ceil(count / chunkSize))
-    const body = `<?xml version="1.0" encoding="UTF-8"?>
+export const getServerSideProps: GetServerSideProps = async ({ res }) => {
+  const chunks = [1] // add 2,3,... if you create more chunks later
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${Array.from({length: chunks}).map((_,i)=>`  <sitemap><loc>${base}/sitemaps/videos-${i+1}.xml</loc></sitemap>`).join('\n')}
+${chunks.map(n => `<sitemap><loc>${DOMAIN}/sitemaps/videos-${n}.xml</loc></sitemap>`).join('\n')}
 </sitemapindex>`
-    res.setHeader('Content-Type', 'text/xml')
-    res.write(body)
-    res.end()
-    return
-  } catch (e) {
-    const body = `<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></sitemapindex>`
-    res.setHeader('Content-Type', 'text/xml')
-    res.write(body)
-    res.end()
-  }
+  res.setHeader('Content-Type', 'text/xml')
+  res.write(xml)
+  res.end()
+  return { props: {} }
 }
+export default function VideosSitemapIndex() { return null }

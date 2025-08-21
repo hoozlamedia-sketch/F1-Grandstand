@@ -316,12 +316,14 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
         featured = {
           id: f.id,
           title: f.title,
-          description: f.description,
-          thumbnail: f.thumbnail,
-          publishedAt: f.publishedAt,
-          live: f.live,
-          liveStart: f.startTime
+          description: f.description ?? null,
+          thumbnail: f.thumbnail ?? null,
+          publishedAt: f.publishedAt ?? null,
+          live: !!f.live,
+          liveStart: f.startTime ?? null
         }
+      } else {
+        featured = null as any
       }
     }
   } catch {
@@ -349,7 +351,7 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
     liveStart: v.startTime
   }))
 
-  return { props: { news, featured, videosSeo: videoSchemas }, revalidate: 300 }
+  return { props: { news, featured: featured ?? null, videosSeo: videoSchemas }, revalidate: 300 }
 }
 
 // --- Components ---
