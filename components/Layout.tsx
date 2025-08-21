@@ -1,11 +1,32 @@
+import Head from 'next/head'
 import Link from 'next/link'
-import React from 'react'
+import React, { ReactNode } from 'react'
 import { Youtube } from 'lucide-react'
 import GlobalSearch from './GlobalSearch'
 
-export default function Layout({ children }: { children: React.ReactNode }) {
+type LayoutProps = {
+  children: ReactNode
+  title?: string
+  description?: string
+}
+
+export default function Layout({ children, title, description }: LayoutProps) {
+  const pageTitle = title ? `${title} | F1 Grandstand` : 'F1 Grandstand'
+  const pageDesc =
+    description ||
+    'Daily Formula 1 news, videos, analysis, rumours, and race updates from F1 Grandstand.'
+
   return (
     <div className="min-h-screen bg-black text-white">
+      <Head>
+        <title>{pageTitle}</title>
+        <meta name="description" content={pageDesc} />
+        <meta property="og:title" content={pageTitle} />
+        <meta property="og:description" content={pageDesc} />
+        <meta property="og:type" content="website" />
+        <meta name="twitter:card" content="summary_large_image" />
+      </Head>
+
       <header className="sticky top-0 z-50 bg-black/80 backdrop-blur border-b border-neutral-800">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
           <Link href="/" className="flex items-center gap-2">
