@@ -1,11 +1,11 @@
 import { ReactNode } from "react";
 import Head from "next/head";
 
-interface LayoutProps {
+type LayoutProps = {
   children: ReactNode;
   title?: string;
   description?: string;
-}
+};
 
 export default function Layout({ children, title, description }: LayoutProps) {
   const pageTitle = title ? `${title} | F1 Grandstand` : "F1 Grandstand";
