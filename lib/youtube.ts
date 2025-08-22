@@ -1,91 +1,88 @@
+const YT_BASE = "https://www.googleapis.com/youtube/v3";
+
 export type YTVideo = {
-  id: string
-  title: string
-  description?: string
-  publishedAt?: string
-  thumbnail?: string
-  live?: boolean
-}
+  id: string;
+  title: string;
+  publishedAt?: string;
+  thumbnail?: string;
+  description?: string;
+};
 
-const API_KEY = process.env.NEXT_PUBLIC_YT_API_KEY || "AIzaSyCytjJ7EwAlPZ8FId1YJsEbz6cYv3VL7_E"
-const CHANNEL_ID = "UCh31mRik5zu2JNIC-oUCBjg"
+export type PageResult = {
+  videos: YTVideo[];
+  nextPageToken?: string;
+  prevPageToken?: string;
+  pageSize: number;
+};
 
-async function fetchJson(url: string) {
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return await res.json()
-}
-
-export async function getUploadsPlaylistId(channelId: string = CHANNEL_ID): Promise<string> {
-  const url = new URL('https://www.googleapis.com/youtube/v3/channels')
-  url.searchParams.set('part', 'contentDetails')
-  url.searchParams.set('id', channelId)
-  url.searchParams.set('key', API_KEY as string)
-  const data = await fetchJson(url.toString())
-  const uploads = data?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads
-  if (!uploads) throw new Error('No uploads playlist id')
-  return uploads
-}
-
-export async function getAllUploadVideoIds(channelId: string = CHANNEL_ID): Promise<string[]> {
-  const uploads = await getUploadsPlaylistId(channelId)
-  const ids: string[] = []
-  let pageToken = ''
-  while (true) {
-    const url = new URL('https://www.googleapis.com/youtube/v3/playlistItems')
-    url.searchParams.set('part', 'contentDetails')
-    url.searchParams.set('playlistId', uploads)
-    url.searchParams.set('maxResults', '50')
-    if (pageToken) url.searchParams.set('pageToken', pageToken)
-    url.searchParams.set('key', API_KEY as string)
-    const data = await fetchJson(url.toString())
-    for (const it of (data.items || [])) {
-      const vid = it.contentDetails?.videoId
-      if (vid) ids.push(vid)
-    }
-    pageToken = data.nextPageToken || ''
-    if (!pageToken) break
+async function getJson(url: string) {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`YouTube API ${res.status}`);
   }
-  return ids
+  return res.json();
 }
 
-export async function getVideoDetails(ids: string[]): Promise<YTVideo[]> {
-  const videos: YTVideo[] = []
-  for (let i = 0; i < ids.length; i += 50) {
-    const chunk = ids.slice(i, i + 50)
-    const url = new URL('https://www.googleapis.com/youtube/v3/videos')
-    url.searchParams.set('part', 'snippet,liveStreamingDetails')
-    url.searchParams.set('id', chunk.join(','))
-    url.searchParams.set('key', API_KEY as string)
-    const data = await fetchJson(url.toString())
-    for (const v of (data.items || [])) {
-      const s = v.snippet || {}
-      const t = s.thumbnails || {}
-      videos.push({
-        id: v.id,
-        title: s.title,
-        description: s.description,
-        publishedAt: s.publishedAt,
-        thumbnail: t.maxres?.url || t.standard?.url || t.high?.url || t.medium?.url || t.default?.url,
-        live: s.liveBroadcastContent === 'live'
-      })
-    }
-  }
-  // sort by publishedAt desc
-  videos.sort((a,b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime())
-  return videos
+// Get the channel's Uploads playlistId (special system playlist)
+export async function getUploadsPlaylistId(channelId: string, apiKey: string): Promise<string> {
+  const url = `${YT_BASE}/channels?part=contentDetails&id=${channelId}&key=${apiKey}`;
+  const data = await getJson(url);
+  const details = data?.items?.[0]?.contentDetails;
+  const uploads = details?.relatedPlaylists?.uploads;
+  if (!uploads) throw new Error("Uploads playlist not found for channel");
+  return uploads;
 }
 
-export async function searchChannelVideos(q: string, maxResults = 18, channelId: string = CHANNEL_ID): Promise<YTVideo[]> {
-  const url = new URL('https://www.googleapis.com/youtube/v3/search')
-  url.searchParams.set('part', 'snippet')
-  url.searchParams.set('channelId', channelId)
-  url.searchParams.set('order', 'date')
-  url.searchParams.set('maxResults', String(maxResults))
-  url.searchParams.set('type', 'video')
-  url.searchParams.set('q', q)
-  url.searchParams.set('key', API_KEY as string)
-  const data = await fetchJson(url.toString())
-  const ids = (data.items || []).map((it: any) => it.id?.videoId).filter(Boolean)
-  return await getVideoDetails(ids)
+// Fetch one page (50 items) of the uploads playlist
+export async function fetchUploadsPage(
+  uploadsPlaylistId: string,
+  apiKey: string,
+  pageToken?: string
+): Promise<PageResult> {
+  const params = new URLSearchParams({
+    part: "snippet,contentDetails",
+    playlistId: uploadsPlaylistId,
+    maxResults: "50",
+    key: apiKey,
+  });
+  if (pageToken) params.set("pageToken", pageToken);
+  const url = `${YT_BASE}/playlistItems?${params.toString()}`;
+  const data = await getJson(url);
+
+  const videos: YTVideo[] = (data.items || []).map((it: any) => {
+    const sn = it.snippet || {};
+    const thumbs = sn.thumbnails || {};
+    const bestThumb =
+      thumbs.maxres?.url ||
+      thumbs.standard?.url ||
+      thumbs.high?.url ||
+      thumbs.medium?.url ||
+      thumbs.default?.url ||
+      "";
+
+    return {
+      id: sn.resourceId?.videoId || "",
+      title: sn.title || "",
+      description: sn.description || "",
+      publishedAt: sn.publishedAt || "",
+      thumbnail: bestThumb,
+    };
+  }).filter(v => v.id && v.title);
+
+  return {
+    videos,
+    nextPageToken: data.nextPageToken,
+    prevPageToken: data.prevPageToken,
+    pageSize: 50,
+  };
+}
+
+// Safe encode/decode page tokens for query strings
+export function encToken(t?: string) {
+  if (!t) return undefined;
+  return Buffer.from(t, "utf8").toString("base64url");
+}
+export function decToken(t?: string) {
+  if (!t) return undefined;
+  try { return Buffer.from(t, "base64url").toString("utf8"); } catch { return undefined; }
 }

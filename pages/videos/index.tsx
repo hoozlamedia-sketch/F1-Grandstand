@@ -1,87 +1,89 @@
 import Head from "next/head";
 import Link from "next/link";
+import { getUploadsPlaylistId, fetchUploadsPage, encToken, decToken, type YTVideo } from "@/lib/youtube";
 
-const CHANNEL_ID = "UCh31mRik5zu2JNIC-oUCBjg";
-const YT_KEY =
-  (process.env.NEXT_PUBLIC_YT_API_KEY as string) ||
-  "AIzaSyCytjJ7EwAlPZ8FId1YJsEbz6cYv3VL7_E"; // fallback to match homepage
-
-type Video = {
-  id: string;
-  title: string;
-  publishedAt?: string;
-  thumbnail?: string;
-};
+// Channel config
+const CHANNEL_ID = "UCh31mRik5zu2JNIC-oUCBjg"; // F1 Grandstand
+const RSS_URL = `https://www.youtube.com/feeds/videos.xml?channel_id=${CHANNEL_ID}`;
 
 type Props = {
-  videos: Video[];
-  nextPageToken?: string | null;
-  prevPageToken?: string | null;
+  videos: YTVideo[];
+  next?: string | null;
+  prev?: string | null;
+  usingRss?: boolean;
   error?: string | null;
 };
 
-export async function getServerSideProps({ query }: { query: any }) {
-  const pageToken = typeof query.pageToken === "string" ? query.pageToken : "";
-  const url = new URL("https://www.googleapis.com/youtube/v3/search");
-  url.searchParams.set("part", "snippet");
-  url.searchParams.set("channelId", CHANNEL_ID);
-  url.searchParams.set("order", "date");
-  url.searchParams.set("type", "video");
-  url.searchParams.set("maxResults", "24");
-  url.searchParams.set("key", YT_KEY);
-  if (pageToken) url.searchParams.set("pageToken", pageToken);
-
-  let videos: Video[] = [];
-  let nextPageToken: string | null = null;
-  let prevPageToken: string | null = null;
-  let error: string | null = null;
-
-  try {
-    const res = await fetch(url.toString());
-    if (!res.ok) {
-      error = `YouTube API error ${res.status}`;
-      console.error("[/videos] YouTube API non-OK:", res.status, await res.text());
-    } else {
-      const data = await res.json();
-      nextPageToken = data.nextPageToken ?? null;
-      prevPageToken = data.prevPageToken ?? null;
-      videos = (data.items || []).map((it: any) => {
-        const sn = it.snippet || {};
-        const thumbs = sn.thumbnails || {};
-        const thumb =
-          thumbs.maxres?.url ||
-          thumbs.standard?.url ||
-          thumbs.high?.url ||
-          thumbs.medium?.url ||
-          thumbs.default?.url ||
-          "";
-        return {
-          id: it.id?.videoId,
-          title: sn.title || "Untitled",
-          publishedAt: sn.publishedAt,
-          thumbnail: thumb,
-        };
-      });
-    }
-  } catch (e: any) {
-    error = "Failed to reach YouTube API";
-    console.error("[/videos] fetch error:", e);
-  }
-
-  return {
-    props: {
-      videos,
-      nextPageToken,
-      prevPageToken,
-      error,
-    } as Props,
-  };
+function classNames(...xs: Array<string | false | null | undefined>) {
+  return xs.filter(Boolean).join(" ");
 }
 
-export default function AllVideos({ videos, nextPageToken, prevPageToken, error }: Props) {
+// Minimal RSS parser fallback (last ~15 videos)
+function parseYouTubeFeed(xml: string): YTVideo[] {
+  const entries = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].map(m => m[1]);
+  const vids: YTVideo[] = [];
+  for (const e of entries) {
+    const id = (e.match(/<yt:videoId>([^<]+)<\/yt:videoId>/) || [])[1];
+    const title = (e.match(/<title>([^<]+)<\/title>/) || [])[1];
+    const publishedAt = (e.match(/<published>([^<]+)<\/published>/) || [])[1];
+    const thumbnail =
+      (e.match(/<media:thumbnail[^>]*url="([^"]+)"/) || [])[1] ||
+      (e.match(/<media:content[^>]*url="([^"]+)"/) || [])[1] || "";
+    if (id && title) vids.push({ id, title, publishedAt, thumbnail });
+  }
+  return vids;
+}
+
+export async function getServerSideProps({ query }: { query: Record<string, string | string[] | undefined> }) {
+  const tokenB64 = (Array.isArray(query.t) ? query.t[0] : query.t) || undefined;
+  const token = decToken(tokenB64);
+
+  let videos: YTVideo[] = [];
+  let next: string | null = null;
+  let prev: string | null = null;
+  let usingRss = false;
+  let error: string | null = null;
+
+  // Prefer secure server-side key (NOT NEXT_PUBLIC)
+  const key = process.env.YT_API_KEY;
+
+  if (key) {
+    try {
+      const uploadsId = await getUploadsPlaylistId(CHANNEL_ID, key);
+      const page = await fetchUploadsPage(uploadsId, key, token);
+      videos = page.videos;
+      next = page.nextPageToken ? encToken(page.nextPageToken) || null : null;
+      prev = page.prevPageToken ? encToken(page.prevPageToken) || null : null;
+    } catch (e: any) {
+      // API failed (403/quota/etc). Fall back to RSS so page still works.
+      error = e?.message || "YouTube API error";
+    }
+  } else {
+    error = "Server API key (YT_API_KEY) not set — using RSS fallback.";
+  }
+
+  if (videos.length === 0) {
+    try {
+      const res = await fetch(RSS_URL, { headers: { Accept: "application/atom+xml" } });
+      if (res.ok) {
+        const xml = await res.text();
+        videos = parseYouTubeFeed(xml);
+        usingRss = true;
+      } else {
+        error = `YouTube RSS error ${res.status}`;
+      }
+    } catch {
+      error = "Could not reach YouTube RSS feed.";
+    }
+  }
+
+  return { props: { videos, next, prev, usingRss, error } as Props };
+}
+
+export default function AllVideos({ videos, next, prev, usingRss, error }: Props) {
   const title = "All F1 Grandstand Videos | F1 news, analysis & reaction";
   const desc =
-    "Browse every F1 Grandstand video: driver market moves, race previews and debriefs, technical talk and real-talk analysis on Formula 1.";
+    "Browse every F1 Grandstand upload: driver market moves, race analysis, tech talk and real-talk commentary on Formula 1.";
 
   return (
     <>
@@ -100,7 +102,9 @@ export default function AllVideos({ videos, nextPageToken, prevPageToken, error 
               All Videos
             </h1>
             <p className="text-neutral-400 mt-1">
-              Latest uploads from our YouTube channel, newest first.
+              {usingRss
+                ? "Showing recent uploads (RSS fallback). Add a server key to enable full pagination."
+                : "Newest first • 50 per page"}
             </p>
           </div>
           <Link
@@ -123,7 +127,11 @@ export default function AllVideos({ videos, nextPageToken, prevPageToken, error 
         ) : (
           <ul className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {videos.map((v) => (
-              <li key={v.id} className="group relative rounded-3xl overflow-hidden" style={{ border: "1px solid #2a2a2a", backgroundColor: "#0f0f0f" }}>
+              <li
+                key={v.id}
+                className="group relative rounded-3xl overflow-hidden"
+                style={{ border: "1px solid #2a2a2a", backgroundColor: "#0f0f0f" }}
+              >
                 <Link href={`/videos/${v.id}`} className="block relative">
                   <img
                     src={v.thumbnail || "/thumbnail-fallback.jpg"}
@@ -131,10 +139,12 @@ export default function AllVideos({ videos, nextPageToken, prevPageToken, error 
                     className="w-full h-auto block object-cover"
                     loading="lazy"
                   />
+                  {/* Subtle hover overlay only (transparent) */}
                   <div
                     className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition"
-                    style={{ background: "linear-gradient(0deg, rgba(0,0,0,0.35), rgba(0,0,0,0.0))" }}
+                    style={{ background: "linear-gradient(0deg, rgba(0,0,0,0.28), rgba(0,0,0,0))" }}
                   />
+                  {/* Gold play button on hover */}
                   <span
                     className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
                     aria-hidden="true"
@@ -144,12 +154,13 @@ export default function AllVideos({ videos, nextPageToken, prevPageToken, error 
                       style={{
                         width: 68,
                         height: 68,
-                        background: "radial-gradient(circle at 30% 30%, #f7e2a6, #d4b36c 60%, #ae8a45)",
+                        background:
+                          "radial-gradient(circle at 30% 30%, #f7e2a6, #d4b36c 60%, #ae8a45)",
                         boxShadow: "0 6px 18px rgba(212,179,108,.35)",
                       }}
                     >
                       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                        <path d="M8 5v14l11-7L8 5z" fill="#0b0b0b"/>
+                        <path d="M8 5v14l11-7L8 5z" fill="#0b0b0b" />
                       </svg>
                     </span>
                   </span>
@@ -167,30 +178,48 @@ export default function AllVideos({ videos, nextPageToken, prevPageToken, error 
           </ul>
         )}
 
-        <nav className="flex items-center justify-between mt-8">
-          <div>
-            {prevPageToken && (
-              <Link
-                href={`/videos?pageToken=${encodeURIComponent(prevPageToken)}`}
-                className="rounded-xl px-4 py-2 text-sm"
-                style={{ backgroundColor: "#181818", border: "1px solid #2a2a2a" }}
-              >
-                ← Previous
-              </Link>
-            )}
+        {/* Pagination */}
+        {!usingRss && (next || prev) && (
+          <nav className="flex items-center justify-center gap-3 mt-8">
+            <Link
+              href={prev ? `/videos?t=${prev}` : "/videos"}
+              className={classNames(
+                "rounded-xl px-4 py-2 text-sm font-semibold",
+                prev ? "" : "pointer-events-none opacity-40"
+              )}
+              style={{ backgroundColor: "#181818", border: "1px solid #2a2a2a" }}
+              aria-disabled={!prev}
+            >
+              ← Newer
+            </Link>
+            <Link
+              href={next ? `/videos?t=${next}` : "/videos"}
+              className={classNames(
+                "rounded-xl px-4 py-2 text-sm font-semibold",
+                next ? "" : "pointer-events-none opacity-40"
+              )}
+              style={{ backgroundColor: "#181818", border: "1px solid #2a2a2a" }}
+              aria-disabled={!next}
+            >
+              Older →
+            </Link>
+          </nav>
+        )}
+
+        {/* If RSS fallback, offer direct link for full archive */}
+        {usingRss && (
+          <div className="text-center mt-10">
+            <a
+              href="https://www.youtube.com/@F1Grandstand/videos"
+              target="_blank"
+              rel="noopener"
+              className="inline-block rounded-xl px-4 py-2 text-sm font-semibold"
+              style={{ backgroundColor: "#181818", border: "1px solid #2a2a2a", color: "#d4b36c" }}
+            >
+              See the full archive on YouTube →
+            </a>
           </div>
-          <div>
-            {nextPageToken && (
-              <Link
-                href={`/videos?pageToken=${encodeURIComponent(nextPageToken)}`}
-                className="rounded-xl px-4 py-2 text-sm"
-                style={{ backgroundColor: "#181818", border: "1px solid #2a2a2a" }}
-              >
-                Next →
-              </Link>
-            )}
-          </div>
-        </nav>
+        )}
       </main>
     </>
   );
