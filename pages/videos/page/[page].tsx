@@ -3,6 +3,8 @@ import Link from 'next/link'
 import type { GetStaticPaths, GetStaticProps } from 'next'
 import Head from 'next/head'
 import { getAllUploadVideoIds, getVideoDetails, YTVideo, searchChannelVideos } from '../../../lib/youtube'
+const CHANNEL_ID = "UCh31mRik5zu2JNIC-oUCBjg";
+const API_KEY = process.env.NEXT_PUBLIC_YT_API_KEY || "";
 
 const PER_PAGE = 18
 
@@ -89,11 +91,11 @@ export const getStaticProps: GetStaticProps<Props> = async (ctx) => {
   try {
     if (q) {
       // Search mode (no pagination, always page 1)
-      const results = await searchChannelVideos(q, String(PER_PAGE))
+      const results = await searchChannelVideos(q, String(PER_PAGE), CHANNEL_ID, API_KEY)
       return { props: { page: 1, totalPages: 1, totalVideos: results.length, videos: results, offset: 0, q } }
     }
 
-    const ids = await getAllUploadVideoIds()
+    const ids = await getAllUploadVideoIds(CHANNEL_ID, API_KEY)
     const totalVideos = ids.length
     const totalPages = Math.max(1, Math.ceil(totalVideos / PER_PAGE))
     const start = (page - 1) * PER_PAGE
