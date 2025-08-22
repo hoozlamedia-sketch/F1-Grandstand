@@ -6,80 +6,95 @@ import { useState } from "react"
 import {
   getUploadsPlaylistId,
   fetchUploadsPage,
-  getAllUploadVideoIds,
   getVideoDetails,
   searchChannelVideos,
+  fetchChannelRSS,
   type YTVideo,
 } from "../../../lib/youtube"
 
 const PER_PAGE = 18
 const CHANNEL_ID = process.env.YT_CHANNEL_ID || "UCh31mRik5zu2JNIC-oUCBjg"
-const API_KEY = process.env.NEXT_PUBLIC_YT_API_KEY || ""
+const API_KEY = process.env.NEXT_PUBLIC_YT_API_KEY || undefined
 
 type Props = {
   page: number
-  totalPages: number
-  totalVideos: number
   videos: YTVideo[]
-  offset: number
+  hasNext: boolean
   q?: string | null
 }
 
 export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
-  const p = parseInt(String(ctx.params?.page || "1"), 10) || 1
+  const p = Math.max(1, parseInt(String(ctx.params?.page || "1"), 10) || 1)
   const q = (ctx.query?.q ? String(ctx.query.q) : "").trim() || null
 
-  // Search mode (no pagination)
+  // SEARCH MODE – API required; if it fails fallback to RSS + filter
   if (q) {
-    const results = await searchChannelVideos(q, PER_PAGE, CHANNEL_ID, API_KEY)
-    return {
-      props: { page: 1, totalPages: 1, totalVideos: results.length, videos: results, offset: 0, q },
+    try {
+      const results = await searchChannelVideos(q, PER_PAGE, CHANNEL_ID, API_KEY)
+      return { props: { page: 1, videos: results, hasNext: false, q } }
+    } catch {
+      // RSS fallback search (recent items only)
+      const rss = await fetchChannelRSS(CHANNEL_ID)
+      const filtered = rss.filter(v => v.title.toLowerCase().includes(q.toLowerCase())).slice(0, PER_PAGE)
+      return { props: { page: 1, videos: filtered, hasNext: false, q } }
     }
   }
 
-  // Normal pagination over uploads playlist
-  const uploads = await getUploadsPlaylistId(CHANNEL_ID, API_KEY)
-  // Collect exactly the page we need by advancing pages of 50
-  const want = PER_PAGE
-  const startIndex = (p - 1) * PER_PAGE
-  let cursor = 0
-  let token: string | undefined
-  let collected: YTVideo[] = []
+  // PAGINATION over uploads – try API first
+  try {
+    const uploads = await getUploadsPlaylistId(CHANNEL_ID, API_KEY)
+    const startIndex = (p - 1) * PER_PAGE
 
-  while (collected.length < want) {
-    const page = await fetchUploadsPage(uploads, 50, token, API_KEY)
-    token = page.nextPageToken
-    for (const v of page.items) {
-      if (cursor >= startIndex && collected.length < want) {
-        collected.push(v)
+    let cursor = 0
+    let token: string | undefined
+    let collected: YTVideo[] = []
+    let lastPageNext: string | undefined
+
+    while (collected.length < PER_PAGE) {
+      const page = await fetchUploadsPage(uploads, 50, token, API_KEY)
+      token = page.nextPageToken
+      lastPageNext = token
+      for (const v of page.items) {
+        if (cursor >= startIndex && collected.length < PER_PAGE) {
+          collected.push(v)
+        }
+        cursor++
+        if (collected.length >= PER_PAGE) break
       }
-      cursor++
-      if (collected.length >= want) break
+      if (!token) break
     }
-    if (!token) break
-  }
 
-  // details (views/duration) – batch by 50
-  const ids = collected.map(v => v.id).filter(Boolean)
-  const details = await getVideoDetails(ids, API_KEY)
-  const merged = collected.map(v => ({ ...v, ...details[v.id] }))
+    // If we finished exactly at a boundary and still have next token, there's a next page
+    const hasNext = Boolean(lastPageNext && collected.length === PER_PAGE)
 
-  // compute totals via id crawl (only once per request)
-  const allIds = await getAllUploadVideoIds(CHANNEL_ID, API_KEY)
-  const totalVideos = allIds.length
-  const totalPages = Math.max(1, Math.ceil(totalVideos / PER_PAGE))
+    // details batch (views/duration); be tolerant
+    let merged = collected
+    try {
+      const ids = collected.map(v => v.id).filter(Boolean)
+      const details = await getVideoDetails(ids, API_KEY)
+      merged = collected.map(v => ({ ...v, ...details[v.id] }))
+    } catch { /* ignore */ }
 
-  if (p < 1 || p > totalPages) {
-    return { redirect: { destination: "/videos/page/1", permanent: false } }
-  }
+    // if user asks beyond available pages (no items and p>1), redirect to page 1
+    if (!merged.length && p > 1) {
+      return { redirect: { destination: "/videos/page/1", permanent: false } }
+    }
 
-  return {
-    props: { page: p, totalPages, totalVideos, videos: merged, offset: startIndex },
+    return { props: { page: p, videos: merged, hasNext } }
+  } catch {
+    // RSS FALLBACK pagination (recent ~15 only)
+    const rss = await fetchChannelRSS(CHANNEL_ID)
+    const start = (p - 1) * PER_PAGE
+    const slice = rss.slice(start, start + PER_PAGE)
+    const hasNext = rss.length > start + PER_PAGE
+    if (!slice.length && p > 1) {
+      return { redirect: { destination: "/videos/page/1", permanent: false } }
+    }
+    return { props: { page: p, videos: slice, hasNext } }
   }
 }
 
-export default function VideosPage(props: Props) {
-  const { page, totalPages, totalVideos, videos, q } = props
+export default function VideosPage({ page, videos, hasNext, q }: Props) {
   const router = useRouter()
   const [query, setQuery] = useState(q || "")
 
@@ -92,7 +107,7 @@ export default function VideosPage(props: Props) {
           content={
             q
               ? `Search results for “${q}” across F1 Grandstand uploads.`
-              : `Browse F1 Grandstand YouTube uploads – page ${page} of ${totalPages} (${totalVideos} total).`
+              : `Browse F1 Grandstand YouTube uploads – page ${page}.`
           }
         />
       </Head>
@@ -124,9 +139,7 @@ export default function VideosPage(props: Props) {
         </header>
 
         <main className="max-w-6xl mx-auto px-4 py-8">
-          {q && (
-            <p className="text-neutral-400 mb-4">Showing results for “{q}”.</p>
-          )}
+          {q && <p className="text-neutral-400 mb-4">Showing results for “{q}”.</p>}
 
           {/* Grid */}
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -160,8 +173,8 @@ export default function VideosPage(props: Props) {
             ))}
           </div>
 
-          {/* Pagination (only when not searching) */}
-          {!q && totalPages > 1 && (
+          {/* Pagination (Prev/Next by hasNext) */}
+          {!q && (
             <nav className="flex items-center justify-between mt-8">
               <Link
                 href={`/videos/page/${Math.max(1, page - 1)}`}
@@ -169,10 +182,10 @@ export default function VideosPage(props: Props) {
               >
                 ← Prev
               </Link>
-              <p className="text-neutral-400">Page {page} of {totalPages}</p>
+              <div />
               <Link
-                href={`/videos/page/${Math.min(totalPages, page + 1)}`}
-                className={`px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-900 ${page === totalPages ? "pointer-events-none opacity-40" : ""}`}
+                href={`/videos/page/${page + 1}`}
+                className={`px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-900 ${!hasNext ? "pointer-events-none opacity-40" : ""}`}
               >
                 Next →
               </Link>
