@@ -86,40 +86,76 @@ function parseAtom(xml: string, source: string): NewsItem[] {
   return items
 }
 
+/** Try to unwrap a Google News link back to the publisher URL if present */
+function unwrapGoogleNewsLink(u: string): string {
+  try {
+    const url = new URL(u)
+    // Some GN links embed original as "url="
+    const orig = url.searchParams.get('url')
+    return orig || u
+  } catch {
+    return u
+  }
+}
+
 export async function fetchAllNews(limit = 40): Promise<NewsItem[]> {
   const out: NewsItem[] = []
 
-  // PlanetF1 (WordPress RSS)
-  const planet = await fetchText('https://www.planetf1.com/feed/')
-  if (planet) out.push(...parseRSS(planet, 'PlanetF1'))
+  // PlanetF1 primary RSS
+  let planet: NewsItem[] = []
+  const planetXml = await fetchText('https://www.planetf1.com/feed/')
+  if (planetXml) planet = parseRSS(planetXml, 'PlanetF1')
 
-  // RacingNews365 — try known RSS, then Google News site feed as fallback
+  // PlanetF1 fallback: Google News site feed
+  if (planet.length === 0) {
+    const gn = await fetchText(
+      'https://news.google.com/rss/search?q=site:planetf1.com&hl=en-GB&gl=GB&ceid=GB:en'
+    )
+    if (gn) {
+      planet = parseRSS(gn, 'PlanetF1').map(i => ({
+        ...i,
+        link: unwrapGoogleNewsLink(i.link),
+      }))
+    }
+  }
+  out.push(...planet)
+
+  // RacingNews365 primary + fallbacks
+  let rn: NewsItem[] = []
   const rnCandidates = [
     'https://www.racingnews365.com/rss',
     'https://racingnews365.com/rss',
     'https://racingnews365.com/en/rss.xml',
-    'https://news.google.com/rss/search?q=site:racingnews365.com&hl=en-GB&gl=GB&ceid=GB:en',
   ]
   for (const u of rnCandidates) {
     const xml = await fetchText(u)
     if (!xml) continue
-    const parsed = /<feed[\s>]/i.test(xml)
+    rn = /<feed[\s>]/i.test(xml)
       ? parseAtom(xml, 'RacingNews365')
       : parseRSS(xml, 'RacingNews365')
-    if (parsed.length) {
-      out.push(...parsed)
-      break
+    if (rn.length) break
+  }
+  if (rn.length === 0) {
+    const gn = await fetchText(
+      'https://news.google.com/rss/search?q=site:racingnews365.com&hl=en-GB&gl=GB&ceid=GB:en'
+    )
+    if (gn) {
+      rn = parseRSS(gn, 'RacingNews365').map(i => ({
+        ...i,
+        link: unwrapGoogleNewsLink(i.link),
+      }))
     }
   }
+  out.push(...rn)
 
-  // Defensive: only those two sites
-  const filtered = out.filter((i) =>
-    /planetf1\.com|racingnews365\.com/i.test(i.link),
+  // Strictly those two sources
+  const filtered = out.filter(i =>
+    /planetf1\.com|racingnews365\.com/i.test(i.link)
   )
 
   filtered.sort(
     (a, b) =>
-      new Date(b.isoDate || 0).getTime() - new Date(a.isoDate || 0).getTime(),
+      new Date(b.isoDate || 0).getTime() - new Date(a.isoDate || 0).getTime()
   )
   return filtered.slice(0, limit)
 }

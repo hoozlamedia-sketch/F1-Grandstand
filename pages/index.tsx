@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { Play, Newspaper, Clock } from 'lucide-react'
 import type { GetStaticProps } from 'next'
 import { fetchAllNews, NewsItem } from '../lib/rss'
-import React from 'react'
+import React, { useState } from 'react'
 
 type SEOVideo = {
   id: string
@@ -33,6 +33,39 @@ type Props = {
 }
 
 const CHANNEL_ID = 'UCh31mRik5zu2JNIC-oUCBjg'
+
+/** Lite YouTube: show thumbnail + play button; load iframe only on click */
+function LiteYouTube({ id, title, thumbnail }: { id: string; title: string; thumbnail?: string | null }) {
+  const [playing, setPlaying] = useState(false)
+  if (playing) {
+    const src = `https://www.youtube.com/embed/${id}?autoplay=1&modestbranding=1&rel=0&iv_load_policy=3`
+    return (
+      <iframe
+        title={title}
+        className="w-full h-full"
+        src={src}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+      />
+    )
+  }
+  const thumb = thumbnail || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`
+  return (
+    <button
+      onClick={() => setPlaying(true)}
+      className="w-full h-full relative group"
+      aria-label={`Play ${title}`}
+    >
+      <img src={thumb} alt={title} className="w-full h-full object-cover" />
+      <span className="absolute inset-0 bg-black/30 group-hover:bg-black/40 transition" />
+      <span className="absolute inset-0 flex items-center justify-center">
+        <span className="rounded-full p-4 md:p-5 bg-white/90 group-hover:bg-white shadow">
+          <Play className="w-6 h-6 text-black" />
+        </span>
+      </span>
+    </button>
+  )
+}
 
 export default function Home({ news, featured, videosSeo }: Props) {
   return (
@@ -113,21 +146,15 @@ export default function Home({ news, featured, videosSeo }: Props) {
         <div className="max-w-6xl mx-auto px-4 py-10 md:py-16 grid md:grid-cols-2 gap-8 items-center">
           {/* Left: latest video (mobile + desktop) */}
           <div className="order-2 md:order-1">
-            {featured?.id ? (
-              <div className="aspect-video rounded-3xl overflow-hidden ring-2 shadow-lg" style={{ borderColor: '#d4b36c' }}>
-                <iframe
-                  title={featured?.title || 'Latest video'}
-                  className="w-full h-full"
-                  src={`https://www.youtube.com/embed/${featured?.id}`}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                />
-              </div>
-            ) : (
-              <div className="aspect-video rounded-3xl overflow-hidden ring-2 shadow-lg grid place-items-center text-neutral-400 text-sm" style={{ borderColor: '#d4b36c' }}>
-                Video unavailable right now
-              </div>
-            )}
+            <div className="aspect-video rounded-3xl overflow-hidden ring-2 shadow-lg" style={{ borderColor: '#d4b36c' }}>
+              {featured?.id ? (
+                <LiteYouTube id={featured.id} title={featured.title} thumbnail={featured.thumbnail} />
+              ) : (
+                <div className="w-full h-full grid place-items-center text-neutral-400 text-sm">
+                  Video unavailable right now
+                </div>
+              )}
+            </div>
             {featured?.title && (
               <div className="mt-3">
                 <p className="text-sm text-neutral-400 line-clamp-2">
@@ -142,10 +169,7 @@ export default function Home({ news, featured, videosSeo }: Props) {
                   rel="noopener"
                   className="mt-2 inline-block rounded-2xl px-4 py-2 text-sm font-semibold bg-red-600 text-white shadow hover:bg-red-700"
                 >
-                  <span className="inline-flex items-center gap-2">
-                    <Play className="w-4 h-4" />
-                    Watch on YouTube
-                  </span>
+                  Watch on YouTube
                 </a>
               </div>
             )}
@@ -222,13 +246,7 @@ export default function Home({ news, featured, videosSeo }: Props) {
               style={{ backgroundColor: '#0f0f0f', border: '1px solid #2a2a2a' }}
             >
               <div className="aspect-video relative">
-                <iframe
-                  title={v.title}
-                  className="w-full h-full"
-                  src={`https://www.youtube.com/embed/${v.id}`}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                />
+                <LiteYouTube id={v.id} title={v.title} thumbnail={v.thumbnail} />
               </div>
               <div className="p-4">
                 <h3 className="font-semibold leading-snug line-clamp-2">{v.title}</h3>
@@ -267,7 +285,6 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
   const news = await fetchAllNews(60)
 
   // YouTube: use public Atom feed (no API key)
-  // https://www.youtube.com/feeds/videos.xml?channel_id=CHANNEL_ID
   async function fetchYouTubeAtom(channelId: string) {
     const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`
     try {
