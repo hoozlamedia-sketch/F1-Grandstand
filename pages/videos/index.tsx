@@ -1,6 +1,6 @@
 import Head from "next/head";
 import Link from "next/link";
-import { getUploadsPlaylistId, fetchUploadsPage, encToken, decToken, type YTVideo } from "@/lib/youtube";
+import { getUploadsPlaylistId, fetchUploadsPage, encToken, decToken, type YTVideo } from "../lib/youtube";
 
 // Channel config
 const CHANNEL_ID = "UCh31mRik5zu2JNIC-oUCBjg"; // F1 Grandstand

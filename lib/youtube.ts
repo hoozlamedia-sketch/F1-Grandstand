@@ -1,88 +1,93 @@
-const YT_BASE = "https://www.googleapis.com/youtube/v3";
+type Env = {
+  YT_API_KEY?: string
+  NEXT_PUBLIC_YT_API_KEY?: string
+}
 
 export type YTVideo = {
-  id: string;
-  title: string;
-  publishedAt?: string;
-  thumbnail?: string;
-  description?: string;
-};
+  id: string
+  title: string
+  description?: string
+  thumbnail?: string
+  publishedAt?: string
+}
 
-export type PageResult = {
-  videos: YTVideo[];
-  nextPageToken?: string;
-  prevPageToken?: string;
-  pageSize: number;
-};
+/** Prefer server-side key; fall back to NEXT_PUBLIC. */
+export function getKey(env: Env = process.env as Env): string {
+  const k = env.YT_API_KEY || env.NEXT_PUBLIC_YT_API_KEY
+  if (!k) throw new Error('YouTube API key missing. Set YT_API_KEY (preferred) or NEXT_PUBLIC_YT_API_KEY.')
+  return k
+}
 
-async function getJson(url: string) {
-  const res = await fetch(url);
+/** Get the channel's "uploads" playlistId (required to list all uploads). */
+export async function getUploadsPlaylistId(channelId: string, apiKey?: string): Promise<string> {
+  const key = apiKey || getKey()
+  const url = new URL('https://www.googleapis.com/youtube/v3/channels')
+  url.searchParams.set('part', 'contentDetails')
+  url.searchParams.set('id', channelId)
+  url.searchParams.set('key', key)
+
+  const res = await fetch(url.toString())
   if (!res.ok) {
-    throw new Error(`YouTube API ${res.status}`);
+    const t = await res.text().catch(() => '')
+    throw new Error(`YouTube channels error ${res.status}: ${t}`)
   }
-  return res.json();
+  const data = await res.json()
+  const uploads = data?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads
+  if (!uploads) throw new Error('Uploads playlist not found for channel.')
+  return uploads
 }
 
-// Get the channel's Uploads playlistId (special system playlist)
-export async function getUploadsPlaylistId(channelId: string, apiKey: string): Promise<string> {
-  const url = `${YT_BASE}/channels?part=contentDetails&id=${channelId}&key=${apiKey}`;
-  const data = await getJson(url);
-  const details = data?.items?.[0]?.contentDetails;
-  const uploads = details?.relatedPlaylists?.uploads;
-  if (!uploads) throw new Error("Uploads playlist not found for channel");
-  return uploads;
-}
-
-// Fetch one page (50 items) of the uploads playlist
+/** Fetch one page (up to 50) of uploads from a playlist. */
 export async function fetchUploadsPage(
-  uploadsPlaylistId: string,
-  apiKey: string,
+  playlistId: string,
+  apiKey?: string,
   pageToken?: string
-): Promise<PageResult> {
-  const params = new URLSearchParams({
-    part: "snippet,contentDetails",
-    playlistId: uploadsPlaylistId,
-    maxResults: "50",
-    key: apiKey,
-  });
-  if (pageToken) params.set("pageToken", pageToken);
-  const url = `${YT_BASE}/playlistItems?${params.toString()}`;
-  const data = await getJson(url);
+): Promise<{ items: YTVideo[]; nextPageToken?: string }> {
+  const key = apiKey || getKey()
+  const url = new URL('https://www.googleapis.com/youtube/v3/playlistItems')
+  url.searchParams.set('part', 'snippet,contentDetails')
+  url.searchParams.set('playlistId', playlistId)
+  url.searchParams.set('maxResults', '50')
+  url.searchParams.set('key', key)
+  if (pageToken) url.searchParams.set('pageToken', pageToken)
 
-  const videos: YTVideo[] = (data.items || []).map((it: any) => {
-    const sn = it.snippet || {};
-    const thumbs = sn.thumbnails || {};
-    const bestThumb =
+  const res = await fetch(url.toString())
+  if (!res.ok) {
+    const t = await res.text().catch(() => '')
+    throw new Error(`YouTube playlistItems error ${res.status}: ${t}`)
+  }
+  const data = await res.json()
+  const items: YTVideo[] = (data.items || []).map((it: any) => {
+    const sn = it.snippet || {}
+    const thumbs = sn.thumbnails || {}
+    const thumb =
       thumbs.maxres?.url ||
       thumbs.standard?.url ||
       thumbs.high?.url ||
       thumbs.medium?.url ||
       thumbs.default?.url ||
-      "";
-
+      undefined
     return {
-      id: sn.resourceId?.videoId || "",
-      title: sn.title || "",
-      description: sn.description || "",
-      publishedAt: sn.publishedAt || "",
-      thumbnail: bestThumb,
-    };
-  }).filter(v => v.id && v.title);
+      id: it.contentDetails?.videoId || sn.resourceId?.videoId,
+      title: sn.title,
+      description: sn.description,
+      thumbnail: thumb,
+      publishedAt: sn.publishedAt
+    }
+  }).filter(v => !!v.id && !!v.title)
 
-  return {
-    videos,
-    nextPageToken: data.nextPageToken,
-    prevPageToken: data.prevPageToken,
-    pageSize: 50,
-  };
+  return { items, nextPageToken: data.nextPageToken }
 }
 
-// Safe encode/decode page tokens for query strings
-export function encToken(t?: string) {
-  if (!t) return undefined;
-  return Buffer.from(t, "utf8").toString("base64url");
+/** Base64URL encode/decode tokens so they are safe in URLs. */
+export function encToken(token?: string): string | undefined {
+  if (!token) return undefined
+  const b64 = Buffer.from(token, 'utf8').toString('base64')
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
 }
-export function decToken(t?: string) {
-  if (!t) return undefined;
-  try { return Buffer.from(t, "base64url").toString("utf8"); } catch { return undefined; }
+export function decToken(safe?: string): string | undefined {
+  if (!safe) return undefined
+  let b64 = safe.replace(/-/g, '+').replace(/_/g, '/')
+  while (b64.length % 4) b64 += '='
+  return Buffer.from(b64, 'base64').toString('utf8')
 }
