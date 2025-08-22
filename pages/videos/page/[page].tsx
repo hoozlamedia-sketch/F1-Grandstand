@@ -91,7 +91,7 @@ export const getStaticProps: GetStaticProps<Props> = async (ctx) => {
   try {
     if (q) {
       // Search mode (no pagination, always page 1)
-      const results = await searchChannelVideos(q, PER_PAGE, CHANNEL_ID, API_KEY)
+      const results = await searchChannelVideos(q, Number(PER_PAGE), CHANNEL_ID, API_KEY)
       return { props: { page: 1, totalPages: 1, totalVideos: results.length, videos: results, offset: 0, q } }
     }
 
