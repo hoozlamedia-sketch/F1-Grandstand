@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { Play, Newspaper, Clock } from 'lucide-react'
 import type { GetStaticProps } from 'next'
 import { fetchAllNews, NewsItem } from '../lib/rss'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
 type SEOVideo = {
   id: string
@@ -34,7 +34,7 @@ type Props = {
 
 const CHANNEL_ID = 'UCh31mRik5zu2JNIC-oUCBjg'
 
-/** Lite YouTube: show thumbnail + play button; load iframe only on click */
+/** Lite YouTube: show thumbnail + play; load iframe only on click */
 function LiteYouTube({ id, title, thumbnail }: { id: string; title: string; thumbnail?: string | null }) {
   const [playing, setPlaying] = useState(false)
   if (playing) {
@@ -57,10 +57,15 @@ function LiteYouTube({ id, title, thumbnail }: { id: string; title: string; thum
       aria-label={`Play ${title}`}
     >
       <img src={thumb} alt={title} className="w-full h-full object-cover" />
-      <span className="absolute inset-0 bg-black/30 group-hover:bg-black/40 transition" />
+      {/* lighter overlay: 15% -> 10% on hover */}
+      <span className="absolute inset-0 bg-black/15 group-hover:bg-black/10 transition" />
+      {/* gold play button */}
       <span className="absolute inset-0 flex items-center justify-center">
-        <span className="rounded-full p-4 md:p-5 bg-white/90 group-hover:bg-white shadow">
-          <Play className="w-6 h-6 text-black" />
+        <span
+          className="rounded-full p-4 md:p-5 shadow ring-1 ring-black/10"
+          style={{ backgroundColor: '#d4b36c' }}
+        >
+          <Play className="w-6 h-6" style={{ color: '#0c0c0c' }} />
         </span>
       </span>
     </button>
@@ -68,6 +73,21 @@ function LiteYouTube({ id, title, thumbnail }: { id: string; title: string; thum
 }
 
 export default function Home({ news, featured, videosSeo }: Props) {
+  const [clientNews, setClientNews] = useState<NewsItem[]>(news)
+
+  // Client-side fallback if build returned no news
+  useEffect(() => {
+    if (news && news.length > 0) return
+    async function load() {
+      try {
+        const res = await fetch('/api/news')
+        const j = await res.json()
+        if (Array.isArray(j.items)) setClientNews(j.items)
+      } catch {}
+    }
+    load()
+  }, [news])
+
   return (
     <Layout>
       {/* JSON-LD: ItemList for the 9 videos on the page */}
@@ -106,7 +126,7 @@ export default function Home({ news, featured, videosSeo }: Props) {
         )}
       </Head>
 
-      {/* JSON-LD: Featured video (latest) */}
+      {/* JSON-LD: Featured */}
       <Head>
         {featured && (
           <script
@@ -138,13 +158,10 @@ export default function Home({ news, featured, videosSeo }: Props) {
       <header className="relative overflow-hidden">
         <div
           className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              'radial-gradient(80% 60% at 50% 0%, rgba(212,179,108,.2), transparent 60%)',
-          }}
+          style={{ background: 'radial-gradient(80% 60% at 50% 0%, rgba(212,179,108,.2), transparent 60%)' }}
         />
         <div className="max-w-6xl mx-auto px-4 py-10 md:py-16 grid md:grid-cols-2 gap-8 items-center">
-          {/* Left: latest video (mobile + desktop) */}
+          {/* Left: latest video */}
           <div className="order-2 md:order-1">
             <div className="aspect-video rounded-3xl overflow-hidden ring-2 shadow-lg" style={{ borderColor: '#d4b36c' }}>
               {featured?.id ? (
@@ -158,16 +175,14 @@ export default function Home({ news, featured, videosSeo }: Props) {
             {featured?.title && (
               <div className="mt-3">
                 <p className="text-sm text-neutral-400 line-clamp-2">
-                  <span className="font-semibold" style={{ color: '#f5e9c8' }}>
-                    Latest:
-                  </span>{' '}
-                  {featured.title}
+                  <span className="font-semibold" style={{ color: '#f5e9c8' }}>Latest:</span> {featured.title}
                 </p>
                 <a
-                  href={`https://www.youtube.com/watch?v=${featured.id}`}
+                  href={`https://www.youtube.com/watch?v=${featured?.id || ''}`}
                   target="_blank"
                   rel="noopener"
-                  className="mt-2 inline-block rounded-2xl px-4 py-2 text-sm font-semibold bg-red-600 text-white shadow hover:bg-red-700"
+                  className="mt-2 inline-block rounded-2xl px-4 py-2 text-sm font-semibold"
+                  style={{ backgroundColor: '#d4b36c', color: '#0c0c0c' }}
                 >
                   Watch on YouTube
                 </a>
@@ -179,17 +194,11 @@ export default function Home({ news, featured, videosSeo }: Props) {
           <div className="order-1 md:order-2">
             <span
               className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-1 rounded-full"
-              style={{
-                background: 'linear-gradient(90deg, #d4b36c, #c9a76d)',
-                color: '#0c0c0c',
-              }}
+              style={{ background: 'linear-gradient(90deg, #d4b36c, #c9a76d)', color: '#0c0c0c' }}
             >
               Formula 1 News
             </span>
-            <h1
-              className="text-4xl md:text-6xl font-black leading-tight mt-3"
-              style={{ color: '#f5e9c8' }}
-            >
+            <h1 className="text-4xl md:text-6xl font-black leading-tight mt-3" style={{ color: '#f5e9c8' }}>
               Daily F1 News, Rumours & <span style={{ color: '#d4b36c' }}>Real Talk</span>
             </h1>
             <p className="mt-4 text-neutral-300 text-lg max-w-prose">
@@ -212,11 +221,7 @@ export default function Home({ news, featured, videosSeo }: Props) {
               </a>
             </div>
             <div className="mt-6 rounded-2xl overflow-hidden ring-1" style={{ borderColor: '#2a2a2a' }}>
-              <img
-                src="/F1 GRANDSTAND BANNER NEW.png"
-                alt="F1 Grandstand banner"
-                className="w-full object-cover"
-              />
+              <img src="/F1 GRANDSTAND BANNER NEW.png" alt="F1 Grandstand banner" className="w-full object-cover" />
             </div>
           </div>
         </div>
@@ -225,26 +230,15 @@ export default function Home({ news, featured, videosSeo }: Props) {
       {/* Videos (static, from server) */}
       <section id="videos" className="max-w-6xl mx-auto px-4 py-12">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl md:text-3xl font-extrabold" style={{ color: '#f5e9c8' }}>
-            Latest Videos
-          </h2>
-          <a
-            href="https://www.youtube.com/@F1Grandstand"
-            target="_blank"
-            className="inline-flex items-center gap-2"
-            style={{ color: '#d4b36c' }}
-          >
+          <h2 className="text-2xl md:text-3xl font-extrabold" style={{ color: '#f5e9c8' }}>Latest Videos</h2>
+          <a href="https://www.youtube.com/@F1Grandstand" target="_blank" className="inline-flex items-center gap-2" style={{ color: '#d4b36c' }}>
             Visit Channel
           </a>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {videosSeo.slice(0, 9).map((v) => (
-            <article
-              key={v.id}
-              className="rounded-3xl overflow-hidden relative"
-              style={{ backgroundColor: '#0f0f0f', border: '1px solid #2a2a2a' }}
-            >
+            <article key={v.id} className="rounded-3xl overflow-hidden relative" style={{ backgroundColor: '#0f0f0f', border: '1px solid #2a2a2a' }}>
               <div className="aspect-video relative">
                 <LiteYouTube id={v.id} title={v.title} thumbnail={v.thumbnail} />
               </div>
@@ -263,16 +257,10 @@ export default function Home({ news, featured, videosSeo }: Props) {
 
       {/* News */}
       <section id="news" className="max-w-6xl mx-auto px-4 pb-16">
-        <h2 className="text-2xl md:text-3xl font-extrabold mb-6" style={{ color: '#f5e9c8' }}>
-          Latest F1 News
-        </h2>
-        <NewsGrid items={news.slice(0, 12)} />
+        <h2 className="text-2xl md:text-3xl font-extrabold mb-6" style={{ color: '#f5e9c8' }}>Latest F1 News</h2>
+        <NewsGrid items={clientNews.slice(0, 12)} />
         <div className="mt-8 text-center">
-          <Link
-            href="/news"
-            className="inline-block rounded-2xl px-5 py-3"
-            style={{ backgroundColor: '#181818', border: '1px solid #2a2a2a' }}
-          >
+          <Link href="/news" className="inline-block rounded-2xl px-5 py-3" style={{ backgroundColor: '#181818', border: '1px solid #2a2a2a' }}>
             More F1 news →
           </Link>
         </div>
@@ -282,16 +270,16 @@ export default function Home({ news, featured, videosSeo }: Props) {
 }
 
 export const getStaticProps: GetStaticProps<Props> = async () => {
+  // NEWS (server)
   const news = await fetchAllNews(60)
 
-  // YouTube: use public Atom feed (no API key)
+  // YouTube via Atom feed (no API key needed for server SEO & cards)
   async function fetchYouTubeAtom(channelId: string) {
     const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`
     try {
       const res = await fetch(url, {
         headers: {
-          'user-agent':
-            'Mozilla/5.0 (compatible; F1GrandstandBot/1.0; +https://www.f1grandstand.com)',
+          'user-agent':'Mozilla/5.0 (compatible; F1GrandstandBot/1.0; +https://www.f1grandstand.com)',
           accept: 'application/atom+xml, application/xml, text/xml; charset=utf-8',
         },
         cache: 'no-store',
@@ -302,48 +290,22 @@ export const getStaticProps: GetStaticProps<Props> = async () => {
       const vids = entries.map((entry) => {
         const seg = entry.split(/<\/entry>/i)[0]
         const title = (seg.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || '')
-          .replace(/<!\[CDATA\[|\]\]>/g, '')
-          .trim()
-        const published =
-          (seg.match(/<published[^>]*>([\s\S]*?)<\/published>/i)?.[1] || '').trim()
-        const videoId =
-          (seg.match(/<yt:videoId[^>]*>([\s\S]*?)<\/yt:videoId>/i)?.[1] || '').trim() ||
-          (seg.match(/<id[^>]*>.*?yt:video:([^<]+)<\/id>/i)?.[1] || '').trim()
-        const thumb =
-          (seg.match(/<media:thumbnail[^>]*url="([^"]+)"/i)?.[1] || '').trim() || null
-        return {
-          id: videoId,
-          title,
-          description: null,
-          thumbnail: thumb,
-          publishedAt: published || null,
-          live: false,
-          liveStart: null,
-        }
+          .replace(/<!\[CDATA\[|\]\]>/g, '').trim()
+        const published = (seg.match(/<published[^>]*>([\s\S]*?)<\/published>/i)?.[1] || '').trim()
+        const videoId = (seg.match(/<yt:videoId[^>]*>([\s\S]*?)<\/yt:videoId>/i)?.[1] || '').trim()
+        const thumb = (seg.match(/<media:thumbnail[^>]*url="([^"]+)"/i)?.[1] || '').trim() || null
+        return { id: videoId, title, description: null, thumbnail: thumb, publishedAt: published || null, live: false, liveStart: null }
       })
-      return vids.filter((v) => v.id && v.title)
-    } catch {
-      return []
-    }
+      return vids.filter(v => v.id && v.title)
+    } catch { return [] }
   }
 
   const videosSeo = await fetchYouTubeAtom(CHANNEL_ID)
   const featured = videosSeo[0]
-    ? {
-        id: videosSeo[0].id,
-        title: videosSeo[0].title,
-        description: videosSeo[0].description ?? null,
-        thumbnail: videosSeo[0].thumbnail ?? null,
-        publishedAt: videosSeo[0].publishedAt ?? null,
-        live: false,
-        liveStart: null,
-      }
+    ? { id: videosSeo[0].id, title: videosSeo[0].title, description: videosSeo[0].description ?? null, thumbnail: videosSeo[0].thumbnail ?? null, publishedAt: videosSeo[0].publishedAt ?? null, live: false, liveStart: null }
     : null
 
-  return {
-    props: { news, featured, videosSeo },
-    revalidate: 300,
-  }
+  return { props: { news, featured, videosSeo }, revalidate: 300 }
 }
 
 // --- Components ---
@@ -351,32 +313,17 @@ function NewsGrid({ items }: { items: NewsItem[] }) {
   return (
     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
       {items.map((n, idx) => (
-        <article
-          key={idx}
-          className="p-5 rounded-3xl"
-          style={{ backgroundColor: '#0f0f0f', border: '1px solid #2a2a2a' }}
-        >
+        <article key={idx} className="p-5 rounded-3xl" style={{ backgroundColor: '#0f0f0f', border: '1px solid #2a2a2a' }}>
           <a href={n.link} target="_blank" rel="noreferrer" className="block">
-            <h3
-              className="font-semibold text-lg leading-snug hover:underline line-clamp-2"
-              style={{ color: '#f5e9c8' }}
-            >
+            <h3 className="font-semibold text-lg leading-snug hover:underline line-clamp-2" style={{ color: '#f5e9c8' }}>
               {n.title}
             </h3>
           </a>
           <p className="text-xs text-neutral-400 mt-1">
             {formatDate(n.isoDate)} • {n.source}
           </p>
-          {n.excerpt && (
-            <p className="text-sm text-neutral-300 mt-3">{n.excerpt}…</p>
-          )}
-          <a
-            className="text-sm inline-block mt-3"
-            style={{ color: '#d4b36c' }}
-            href={n.link}
-            target="_blank"
-            rel="noopener"
-          >
+          {n.excerpt && <p className="text-sm text-neutral-300 mt-3">{n.excerpt}…</p>}
+          <a className="text-sm inline-block mt-3" style={{ color: '#d4b36c' }} href={n.link} target="_blank" rel="noopener">
             Read more →
           </a>
         </article>
@@ -387,9 +334,5 @@ function NewsGrid({ items }: { items: NewsItem[] }) {
 
 function formatDate(d?: string) {
   if (!d) return ''
-  try {
-    return new Date(d).toLocaleString()
-  } catch {
-    return ''
-  }
+  try { return new Date(d).toLocaleString() } catch { return '' }
 }
