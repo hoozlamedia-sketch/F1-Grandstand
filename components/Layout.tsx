@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 
@@ -9,53 +9,79 @@ type LayoutProps = {
 };
 
 export default function Layout({ children, title, description }: LayoutProps) {
-  const pageTitle = title ? `${title} | F1 Grandstand` : "F1 Grandstand";
+  const pageTitle = title ? `${title} | F1 Grandstand` : "F1 Grandstand – Daily F1 News & Videos";
   const pageDesc =
     description ||
-    "Daily Formula 1 news, videos, analysis, rumours, and race updates from F1 Grandstand.";
+    "F1 Grandstand brings daily Formula 1 news, driver market updates, race analysis, and new videos.";
 
-  // Prefer local logo; fall back to hosted if local missing
-  const logoSrc = "/F1-GRANDSTAND-LOGO-NEW.png";
-  const hostedLogo = "https://www.f1grandstand.com/F1-GRANDSTAND-LOGO-NEW.png";
+  const [q, setQ] = useState("");
 
   return (
     <>
       <Head>
         <title>{pageTitle}</title>
         <meta name="description" content={pageDesc} />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#d4b36c" />
+        <meta property="og:site_name" content="F1 Grandstand" />
+        <meta property="og:title" content={pageTitle} />
+        <meta property="og:description" content={pageDesc} />
+        <link rel="icon" href="/favicon.ico" />
+        {/* Organization JSON-LD */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              "name": "F1 Grandstand",
+              "url": "https://www.f1grandstand.com",
+              "logo": "https://www.f1grandstand.com/F1-GRANDSTAND-LOGO-NEW.png",
+            }),
+          }}
+        />
       </Head>
 
-      <div className="min-h-screen bg-black text-white">
-        {/* Header */}
-        <header className="sticky top-0 z-40 border-b border-neutral-800/80 bg-black/70 backdrop-blur">
-          <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-3">
-              <img
-                src={logoSrc}
-                alt="F1 Grandstand"
-                className="h-7 w-auto"
-                onError={(e) => { (e.currentTarget as HTMLImageElement).src = hostedLogo; }}
-              />
-            </Link>
-            <nav className="flex items-center gap-4 sm:gap-6 text-sm">
-              <Link href="/#videos" className="hover:underline">Videos</Link>
-              <Link href="/#news" className="hover:underline">News</Link>
-              <Link href="/about" className="hover:underline">About</Link>
-            </nav>
-          </div>
-        </header>
+      <header className="sticky top-0 z-50 border-b border-neutral-800 bg-black/80 backdrop-blur">
+        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center gap-4">
+          <Link href="/" className="flex items-center gap-3">
+            <img
+              src="/F1 GRANDSTAND LOGO NEW.png"
+              alt="F1 Grandstand"
+              className="h-8 w-auto hidden sm:block"
+            />
+            <span className="text-lg font-extrabold tracking-wide" style={{color:"#f5e9c8"}}>
+              F1 Grandstand
+            </span>
+          </Link>
 
-        {/* Main */}
-        <main>{children}</main>
+          <nav className="ml-auto hidden md:flex items-center gap-6">
+            <Link href="/" className="hover:text-[#d4b36c]">Home</Link>
+            <Link href="/news" className="hover:text-[#d4b36c]">News</Link>
+            <Link href="/videos" className="hover:text-[#d4b36c]">Videos</Link>
+          </nav>
 
-        {/* Footer */}
-        <footer className="mt-16 border-t border-neutral-900 text-neutral-400 text-sm">
-          <div className="max-w-6xl mx-auto px-4 py-8">
-            © {new Date().getFullYear()} F1 Grandstand
-          </div>
-        </footer>
-      </div>
+          <form
+            action="/search"
+            method="GET"
+            className="ml-4 flex-1 max-w-xs hidden sm:flex"
+            onSubmit={(e)=>{ if(!q.trim()){ e.preventDefault(); } }}
+          >
+            <input
+              name="q"
+              value={q}
+              onChange={(e)=>setQ(e.target.value)}
+              placeholder="Search F1 news & videos…"
+              className="w-full rounded-xl bg-[#111] border border-neutral-800 px-3 py-2 text-sm outline-none focus:border-[#d4b36c]"
+            />
+          </form>
+        </div>
+      </header>
+
+      <main className="min-h-[60vh] bg-black text-white">{children}</main>
+
+      <footer className="border-t border-neutral-900 py-8 text-center text-sm text-neutral-400">
+        © {new Date().getFullYear()} F1 Grandstand — Daily Formula 1 news & videos.
+      </footer>
     </>
   );
 }
