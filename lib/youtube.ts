@@ -1,156 +1,148 @@
 /**
- * YouTube helpers used by /videos and /videos/page/[page]
- * Works with API key when available; can be combined with RSS fallbacks elsewhere.
+ * YouTube helpers – channel uploads (all, paginated), search within channel, fetch details
+ * Works server-side (Node fetch). Requires:
+ *  - process.env.NEXT_PUBLIC_YT_API_KEY  (YouTube Data API v3 key)
+ *  - process.env.YT_CHANNEL_ID          (channelId)
  */
 
 export type YTVideo = {
-  id: string;
-  title: string;
-  description?: string;
-  publishedAt?: string;
-  thumbnail?: string;
-  live?: boolean;
-  duration?: string;
-  views?: number;
-};
-
-const YT_API_KEY = process.env.NEXT_PUBLIC_YT_API_KEY || "";
-
-/** Resolve a channel's uploads playlist id (UUxxxxxxxx...) */
-export async function getUploadsPlaylistId(channelId: string, apiKey = YT_API_KEY): Promise<string> {
-  if (!apiKey) throw new Error("Missing YouTube API key");
-  const url = new URL("https://www.googleapis.com/youtube/v3/channels");
-  url.searchParams.set("part", "contentDetails");
-  url.searchParams.set("id", channelId);
-  url.searchParams.set("key", apiKey);
-  const res = await fetch(url.toString());
-  if (!res.ok) throw new Error(`channels failed: ${res.status}`);
-  const data = await res.json();
-  const pl = data?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
-  if (!pl) throw new Error("uploads playlist not found");
-  return pl as string;
+  id: string
+  title: string
+  thumbnail: string
+  publishedAt?: string
+  description?: string
+  views?: string
+  duration?: string
 }
 
-/** Fetch one page from a playlistItems list */
-export async function fetchUploadsPage(playlistId: string, pageToken = "", apiKey = YT_API_KEY) {
-  if (!apiKey) throw new Error("Missing YouTube API key");
-  const url = new URL("https://www.googleapis.com/youtube/v3/playlistItems");
-  url.searchParams.set("part", "snippet,contentDetails");
-  url.searchParams.set("playlistId", playlistId);
-  url.searchParams.set("maxResults", "50");
-  if (pageToken) url.searchParams.set("pageToken", pageToken);
-  url.searchParams.set("key", apiKey);
-  const res = await fetch(url.toString());
-  if (!res.ok) throw new Error(`playlistItems failed: ${res.status}`);
-  return res.json() as Promise<{ items: any[]; nextPageToken?: string }>;
+const API = "https://www.googleapis.com/youtube/v3"
+
+function requireEnv(name: string): string {
+  const v = process.env[name]
+  if (!v) throw new Error(`Missing required env var: ${name}`)
+  return v
 }
 
-/**
- * NEW: collect *all* upload video IDs for a channel (paginated).
- * Limits to 1000 to avoid abuse/quotas; adjust if needed.
- */
-export async function getAllUploadVideoIds(
-  channelId: string,
-  apiKey = YT_API_KEY,
-  hardLimit = 1000
-): Promise<string[]> {
-  const uploads = await getUploadsPlaylistId(channelId, apiKey);
-  const ids: string[] = [];
-  let token = "";
+export async function getUploadsPlaylistId(channelId?: string, apiKey?: string): Promise<string> {
+  const CHANNEL_ID = channelId || requireEnv("YT_CHANNEL_ID")
+  const KEY = apiKey || requireEnv("NEXT_PUBLIC_YT_API_KEY")
+
+  const url = new URL(API + "/channels")
+  url.searchParams.set("part", "contentDetails")
+  url.searchParams.set("id", CHANNEL_ID)
+  url.searchParams.set("key", KEY)
+
+  const res = await fetch(url.toString())
+  if (!res.ok) throw new Error(`channels failed: ${res.status}`)
+  const json = await res.json()
+  const uploads = json?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads
+  if (!uploads) throw new Error("No uploads playlist found for channel")
+  return uploads as string
+}
+
+/** Fetch ONE page of uploads from the uploads playlist */
+export async function fetchUploadsPage(playlistId: string, maxResults: number = 50, pageToken?: string, apiKey?: string) {
+  const KEY = apiKey || requireEnv("NEXT_PUBLIC_YT_API_KEY")
+  const url = new URL(API + "/playlistItems")
+  url.searchParams.set("part", "snippet,contentDetails")
+  url.searchParams.set("playlistId", playlistId)
+  url.searchParams.set("maxResults", String(Math.min(50, Math.max(1, maxResults))))
+  if (pageToken) url.searchParams.set("pageToken", pageToken)
+  url.searchParams.set("key", KEY)
+
+  const res = await fetch(url.toString())
+  if (!res.ok) throw new Error(`playlistItems failed: ${res.status}`)
+  const json = await res.json()
+
+  const items = (json.items || []).map((it: any) => {
+    const id = it.contentDetails?.videoId || it.snippet?.resourceId?.videoId
+    const sn = it.snippet || {}
+    const thumbs = sn.thumbnails || {}
+    const thumb = thumbs.maxres?.url || thumbs.high?.url || thumbs.medium?.url || thumbs.default?.url || ""
+    return {
+      id,
+      title: sn.title || "",
+      thumbnail: thumb,
+      publishedAt: sn.publishedAt
+    } as YTVideo
+  })
+
+  return {
+    items,
+    nextPageToken: json.nextPageToken || undefined,
+    prevPageToken: json.prevPageToken || undefined
+  }
+}
+
+/** Get ALL upload video IDs (for counting/pagination) by walking pages */
+export async function getAllUploadVideoIds(channelId?: string, apiKey?: string): Promise<string[]> {
+  const uploads = await getUploadsPlaylistId(channelId, apiKey)
+  let token: string | undefined
+  const ids: string[] = []
   do {
-    const page = await fetchUploadsPage(uploads, token, apiKey);
-    for (const it of page.items || []) {
-      const vid = it?.contentDetails?.videoId || it?.snippet?.resourceId?.videoId;
-      if (vid) ids.push(vid);
-      if (ids.length >= hardLimit) break;
-    }
-    token = page.nextPageToken || "";
-  } while (token && ids.length < hardLimit);
-  return ids;
+    const page = await fetchUploadsPage(uploads, 50, token, apiKey)
+    page.items.forEach(v => v.id && ids.push(v.id))
+    token = page.nextPageToken
+  } while (token)
+  return ids
 }
 
-/** Batch fetch details for up to 50 ids per call */
-export async function getVideoDetails(ids: string[], apiKey = YT_API_KEY): Promise<YTVideo[]> {
-  if (!apiKey) throw new Error("Missing YouTube API key");
-  const out: YTVideo[] = [];
-  for (let i = 0; i < ids.length; i += 50) {
-    const chunk = ids.slice(i, i + 50);
-    const url = new URL("https://www.googleapis.com/youtube/v3/videos");
-    url.searchParams.set("part", "snippet,contentDetails,statistics");
-    url.searchParams.set("id", chunk.join(","));
-    url.searchParams.set("key", apiKey);
-    const res = await fetch(url.toString());
-    if (!res.ok) throw new Error(`videos failed: ${res.status}`);
-    const data = await res.json();
-    for (const v of data.items || []) {
-      const sn = v.snippet || {};
-      const thumbs = sn.thumbnails || {};
-      const thumb =
-        thumbs.maxres?.url ||
-        thumbs.standard?.url ||
-        thumbs.high?.url ||
-        thumbs.medium?.url ||
-        thumbs.default?.url ||
-        "";
-      out.push({
-        id: v.id,
-        title: sn.title || "",
-        description: sn.description || "",
-        publishedAt: sn.publishedAt || "",
-        thumbnail: thumb,
-        live: sn.liveBroadcastContent === "live",
-        duration: v?.contentDetails?.duration,
-        views: v?.statistics?.viewCount ? Number(v.statistics.viewCount) : undefined,
-      });
+/** Fetch details (views, duration) for up to 50 ids */
+export async function getVideoDetails(ids: string[], apiKey?: string): Promise<Record<string, Partial<YTVideo>>> {
+  if (ids.length === 0) return {}
+  const KEY = apiKey || requireEnv("NEXT_PUBLIC_YT_API_KEY")
+  const url = new URL(API + "/videos")
+  url.searchParams.set("part", "snippet,contentDetails,statistics")
+  url.searchParams.set("id", ids.join(","))
+  url.searchParams.set("key", KEY)
+
+  const res = await fetch(url.toString())
+  if (!res.ok) throw new Error(`videos details failed: ${res.status}`)
+  const json = await res.json()
+  const out: Record<string, Partial<YTVideo>> = {}
+  for (const it of json.items || []) {
+    const id = it.id
+    out[id] = {
+      description: it.snippet?.description,
+      views: it.statistics?.viewCount,
+      duration: it.contentDetails?.duration
     }
   }
-  return out;
+  return out
 }
 
-/** Optional: search channel videos (for /videos search UI) */
+/** Search inside a channel, limited by maxResults (1..50) */
 export async function searchChannelVideos(
-  channelId: string,
-  q: string,
-  apiKey = YT_API_KEY,
-  maxResults = 25
+  query: string,
+  maxResults: number = 25,
+  channelId?: string,
+  apiKey?: string
 ): Promise<YTVideo[]> {
-  if (!apiKey) throw new Error("Missing YouTube API key");
-  const url = new URL("https://www.googleapis.com/youtube/v3/search");
-  url.searchParams.set("part", "snippet");
-  url.searchParams.set("channelId", channelId);
-  url.searchParams.set("q", q);
-  url.searchParams.set("type", "video");
-  url.searchParams.set("order", "date");
-  url.searchParams.set("maxResults", String(Math.min(50, Math.max(1, maxResults))));
-  url.searchParams.set("key", apiKey);
-  const res = await fetch(url.toString());
-  if (!res.ok) throw new Error(`search failed: ${res.status}`);
-  const data = await res.json();
-  return (data.items || []).map((it: any) => {
-    const sn = it.snippet || {};
-    const thumbs = sn.thumbnails || {};
-    const thumb =
-      thumbs.maxres?.url ||
-      thumbs.standard?.url ||
-      thumbs.high?.url ||
-      thumbs.medium?.url ||
-      thumbs.default?.url ||
-      "";
-    return {
-      id: it.id?.videoId,
-      title: sn.title || "",
-      description: sn.description || "",
-      publishedAt: sn.publishedAt || "",
-      thumbnail: thumb,
-      live: sn.liveBroadcastContent === "live",
-    } as YTVideo;
-  });
-}
+  const CHANNEL_ID = channelId || requireEnv("YT_CHANNEL_ID")
+  const KEY = apiKey || requireEnv("NEXT_PUBLIC_YT_API_KEY")
 
-/** Simple opaque token helpers (used by /videos index pagination UI) */
-export function encToken(s: string): string {
-  return Buffer.from(s, "utf8").toString("base64url");
-}
-export function decToken(s: string): string {
-  try { return Buffer.from(s, "base64url").toString("utf8"); } catch { return ""; }
+  const url = new URL(API + "/search")
+  url.searchParams.set("part", "snippet")
+  url.searchParams.set("channelId", CHANNEL_ID)
+  url.searchParams.set("q", query)
+  url.searchParams.set("type", "video")
+  url.searchParams.set("order", "date")
+  url.searchParams.set("maxResults", String(Math.min(50, Math.max(1, maxResults))))
+  url.searchParams.set("key", KEY)
+
+  const res = await fetch(url.toString())
+  if (!res.ok) throw new Error(`search failed: ${res.status}`)
+  const json = await res.json()
+  return (json.items || []).map((it: any) => {
+    const id = it.id?.videoId
+    const sn = it.snippet || {}
+    const thumbs = sn.thumbnails || {}
+    const thumb = thumbs.maxres?.url || thumbs.high?.url || thumbs.medium?.url || thumbs.default?.url || ""
+    return {
+      id,
+      title: sn.title || "",
+      thumbnail: thumb,
+      publishedAt: sn.publishedAt
+    } as YTVideo
+  })
 }
