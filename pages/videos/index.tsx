@@ -2,7 +2,9 @@ import Head from "next/head";
 import Link from "next/link";
 
 const CHANNEL_ID = "UCh31mRik5zu2JNIC-oUCBjg";
-const YT_KEY = process.env.NEXT_PUBLIC_YT_API_KEY as string;
+const YT_KEY =
+  (process.env.NEXT_PUBLIC_YT_API_KEY as string) ||
+  "AIzaSyCytjJ7EwAlPZ8FId1YJsEbz6cYv3VL7_E"; // fallback to match homepage
 
 type Video = {
   id: string;
@@ -15,6 +17,7 @@ type Props = {
   videos: Video[];
   nextPageToken?: string | null;
   prevPageToken?: string | null;
+  error?: string | null;
 };
 
 export async function getServerSideProps({ query }: { query: any }) {
@@ -31,34 +34,38 @@ export async function getServerSideProps({ query }: { query: any }) {
   let videos: Video[] = [];
   let nextPageToken: string | null = null;
   let prevPageToken: string | null = null;
+  let error: string | null = null;
 
   try {
     const res = await fetch(url.toString());
-    if (res.ok) {
+    if (!res.ok) {
+      error = `YouTube API error ${res.status}`;
+      console.error("[/videos] YouTube API non-OK:", res.status, await res.text());
+    } else {
       const data = await res.json();
       nextPageToken = data.nextPageToken ?? null;
       prevPageToken = data.prevPageToken ?? null;
-      videos =
-        (data.items || []).map((it: any) => {
-          const sn = it.snippet;
-          const thumbs = sn?.thumbnails || {};
-          const thumb =
-            thumbs.maxres?.url ||
-            thumbs.standard?.url ||
-            thumbs.high?.url ||
-            thumbs.medium?.url ||
-            thumbs.default?.url ||
-            "";
-          return {
-            id: it.id.videoId,
-            title: sn.title,
-            publishedAt: sn.publishedAt,
-            thumbnail: thumb,
-          } as Video;
-        }) || [];
+      videos = (data.items || []).map((it: any) => {
+        const sn = it.snippet || {};
+        const thumbs = sn.thumbnails || {};
+        const thumb =
+          thumbs.maxres?.url ||
+          thumbs.standard?.url ||
+          thumbs.high?.url ||
+          thumbs.medium?.url ||
+          thumbs.default?.url ||
+          "";
+        return {
+          id: it.id?.videoId,
+          title: sn.title || "Untitled",
+          publishedAt: sn.publishedAt,
+          thumbnail: thumb,
+        };
+      });
     }
-  } catch {
-    // fail silently; page will render empty state
+  } catch (e: any) {
+    error = "Failed to reach YouTube API";
+    console.error("[/videos] fetch error:", e);
   }
 
   return {
@@ -66,11 +73,12 @@ export async function getServerSideProps({ query }: { query: any }) {
       videos,
       nextPageToken,
       prevPageToken,
+      error,
     } as Props,
   };
 }
 
-export default function AllVideos({ videos, nextPageToken, prevPageToken }: Props) {
+export default function AllVideos({ videos, nextPageToken, prevPageToken, error }: Props) {
   const title = "All F1 Grandstand Videos | F1 news, analysis & reaction";
   const desc =
     "Browse every F1 Grandstand video: driver market moves, race previews and debriefs, technical talk and real-talk analysis on Formula 1.";
@@ -104,6 +112,12 @@ export default function AllVideos({ videos, nextPageToken, prevPageToken }: Prop
           </Link>
         </header>
 
+        {error && (
+          <p className="mb-4 text-sm" style={{ color: "#ff6b6b" }}>
+            {error}
+          </p>
+        )}
+
         {videos.length === 0 ? (
           <p className="text-neutral-400">No videos found.</p>
         ) : (
@@ -111,20 +125,16 @@ export default function AllVideos({ videos, nextPageToken, prevPageToken }: Prop
             {videos.map((v) => (
               <li key={v.id} className="group relative rounded-3xl overflow-hidden" style={{ border: "1px solid #2a2a2a", backgroundColor: "#0f0f0f" }}>
                 <Link href={`/videos/${v.id}`} className="block relative">
-                  {/* Thumbnail */}
                   <img
                     src={v.thumbnail || "/thumbnail-fallback.jpg"}
                     alt={v.title}
                     className="w-full h-auto block object-cover"
+                    loading="lazy"
                   />
-
-                  {/* Gentle gradient (very light so it doesn't dull thumbnails) */}
                   <div
                     className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition"
                     style={{ background: "linear-gradient(0deg, rgba(0,0,0,0.35), rgba(0,0,0,0.0))" }}
                   />
-
-                  {/* Gold play button */}
                   <span
                     className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
                     aria-hidden="true"
@@ -157,7 +167,6 @@ export default function AllVideos({ videos, nextPageToken, prevPageToken }: Prop
           </ul>
         )}
 
-        {/* Pagination */}
         <nav className="flex items-center justify-between mt-8">
           <div>
             {prevPageToken && (
