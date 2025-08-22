@@ -1,15 +1,11 @@
 import React, { ReactNode } from "react";
 import Head from "next/head";
 import Link from "next/link";
-import { Search } from "lucide-react";
-
-type LayoutProps = {
+import { Search } from "lucide-react";type LayoutProps = {
   children: ReactNode;
   title?: string;
   description?: string;
-};
-
-function NavLink({
+};function NavLink({
   href,
   children,
 }: {
@@ -25,17 +21,11 @@ function NavLink({
       {children}
     </Link>
   );
-}
-
-export default function Layout({ children, title, description }: LayoutProps) {
+}export default function Layout({ children, title, description }: LayoutProps) {
   const pageTitle = title ? `${title} | F1 Grandstand` : "F1 Grandstand";
   const pageDesc =
     description ||
-    "Daily Formula 1 news, driver market rumours, race analysis, and videos — F1 Grandstand.";
-
-  const siteUrl = "https://www.f1grandstand.com";
-
-  return (
+    "Daily Formula 1 news, driver market rumours, race analysis, and videos — F1 Grandstand.";  const siteUrl = "https://www.f1grandstand.com";  return (
     <>
       <Head>
         <title>{pageTitle}</title>
@@ -58,9 +48,7 @@ export default function Layout({ children, title, description }: LayoutProps) {
           name="twitter:image"
           content={`${siteUrl}/F1-GRANDSTAND-LOGO-NEW.png`}
         />
-      </Head>
-
-      {/* Header / Navigation */}
+      </Head>      {/* Header / Navigation */}
       <header className="sticky top-0 z-50 bg-black/80 backdrop-blur border-b border-neutral-800">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
           {/* Logo + Title (title shows even if image missing) */}
@@ -76,17 +64,13 @@ export default function Layout({ children, title, description }: LayoutProps) {
             >
               F1 <span style={{ color: "#d4b36c" }}>Grandstand</span>
             </span>
-          </Link>
-
-          {/* Primary nav */}
+          </Link>          {/* Primary nav */}
           <nav className="hidden md:flex items-center gap-6">
             <NavLink href="/news">News</NavLink>
             <NavLink href="/videos">Videos</NavLink>
             <NavLink href="/about">About</NavLink>
             <NavLink href="/sitemap.xml">Sitemap</NavLink>
-          </nav>
-
-          {/* Site-restricted Search (Google) */}
+          </nav>          {/* Site-restricted Search (Google) */}
           <form
             className="hidden md:flex items-center gap-2"
             role="search"
@@ -110,12 +94,8 @@ export default function Layout({ children, title, description }: LayoutProps) {
             </button>
           </form>
         </div>
-      </header>
-
-      {/* Main */}
-      <main className="min-h-screen bg-black text-white">{children}</main>
-
-      {/* Footer */}
+      </header>      {/* Main */}
+      <main className="min-h-screen bg-black text-white">{children}</main>      {/* Footer */}
       <footer className="border-t border-neutral-800 bg-black">
         <div className="max-w-6xl mx-auto px-4 py-6 text-sm text-neutral-400 flex flex-wrap items-center justify-between gap-3">
           <p>
