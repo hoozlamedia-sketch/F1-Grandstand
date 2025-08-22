@@ -2,83 +2,71 @@ export type YTVideo = {
   id: string;
   title: string;
   publishedAt?: string;
-  description?: string;
-  thumbnail?: string | null;
+  thumbnail?: string;
 };
 
-const API_KEY = process.env.NEXT_PUBLIC_YT_API_KEY || "";
+const YT_KEY = process.env.NEXT_PUBLIC_YT_API_KEY || "";
 
-function assertKey() {
-  if (!API_KEY) throw new Error("Missing NEXT_PUBLIC_YT_API_KEY");
-}
-
-export async function getUploadsPlaylistId(channelId: string): Promise<string> {
-  assertKey();
+/** Get the "uploads" playlist id for a channel (needed to page through ALL uploads). */
+export async function getUploadsPlaylistId(channelId: string): Promise<string | null> {
+  if (!YT_KEY) return null;
   const url = new URL("https://www.googleapis.com/youtube/v3/channels");
   url.searchParams.set("part", "contentDetails");
   url.searchParams.set("id", channelId);
-  url.searchParams.set("key", API_KEY);
+  url.searchParams.set("key", YT_KEY);
   const res = await fetch(url.toString());
-  if (!res.ok) {
-    throw new Error(`YouTube channels error ${res.status}`);
-  }
+  if (!res.ok) return null;
   const data = await res.json();
-  const uploads = data?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
-  if (!uploads) throw new Error("Uploads playlist not found");
-  return uploads as string;
+  const items = data?.items || [];
+  return items[0]?.contentDetails?.relatedPlaylists?.uploads || null;
 }
 
-export async function fetchUploadsPage(
-  playlistId: string,
-  pageToken?: string | null,
-  maxResults = 50
-): Promise<{ items: YTVideo[]; nextPageToken?: string | null }> {
-  assertKey();
+/** Fetch one page of uploads from a playlist. */
+export async function fetchUploadsPage(playlistId: string, pageToken?: string | null) {
+  if (!YT_KEY) throw new Error("Missing NEXT_PUBLIC_YT_API_KEY");
   const url = new URL("https://www.googleapis.com/youtube/v3/playlistItems");
   url.searchParams.set("part", "snippet,contentDetails");
   url.searchParams.set("playlistId", playlistId);
-  url.searchParams.set("maxResults", String(Math.min(Math.max(maxResults, 1), 50)));
+  url.searchParams.set("maxResults", "50"); // max allowed
+  url.searchParams.set("key", YT_KEY);
   if (pageToken) url.searchParams.set("pageToken", pageToken);
-  url.searchParams.set("key", API_KEY);
 
   const res = await fetch(url.toString());
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`YouTube playlistItems error ${res.status} ${text}`);
+    const t = await res.text().catch(() => "");
+    throw new Error(`YouTube API error ${res.status}: ${t.slice(0,200)}`);
   }
-  const data = await res.json();
-
-  const items: YTVideo[] = (data.items || [])
-    .map((it: any) => {
-      const sn = it.snippet || {};
-      const thumbs = sn.thumbnails || {};
-      const thumb =
-        thumbs.maxres?.url ||
-        thumbs.standard?.url ||
-        thumbs.high?.url ||
-        thumbs.medium?.url ||
-        thumbs.default?.url ||
-        null;
-      return {
-        id: sn.resourceId?.videoId || "",
-        title: sn.title || "",
-        description: sn.description || "",
-        publishedAt: sn.publishedAt || "",
-        thumbnail: thumb,
-      };
-    })
-    .filter((v: YTVideo) => v.id);
-
-  return { items, nextPageToken: data.nextPageToken || null };
+  const json = await res.json();
+  const vids: YTVideo[] = (json.items || []).map((it: any) => {
+    const sn = it.snippet || {};
+    const thumbs = sn.thumbnails || {};
+    const thumb =
+      thumbs.maxres?.url ||
+      thumbs.standard?.url ||
+      thumbs.high?.url ||
+      thumbs.medium?.url ||
+      thumbs.default?.url ||
+      "";
+    return {
+      id: it.contentDetails?.videoId || sn.resourceId?.videoId || "",
+      title: sn.title || "",
+      publishedAt: sn.publishedAt || "",
+      thumbnail: thumb || undefined,
+    };
+  });
+  return {
+    videos: vids,
+    nextPageToken: json.nextPageToken || null,
+    prevPageToken: json.prevPageToken || null,
+  };
 }
 
-export const encToken = (t?: string | null) =>
-  t ? Buffer.from(t, "utf8").toString("base64url") : "";
-
-export const decToken = (t?: string | null) => {
-  try {
-    return t ? Buffer.from(t, "base64url").toString("utf8") : "";
-  } catch {
-    return "";
-  }
-};
+/** Encode/Decode tokens for the querystring (base64url). */
+export function encToken(t?: string | null) {
+  if (!t) return null;
+  return Buffer.from(t, "utf8").toString("base64url");
+}
+export function decToken(t?: string | null) {
+  if (!t) return null;
+  try { return Buffer.from(t, "base64url").toString("utf8"); } catch { return null; }
+}
