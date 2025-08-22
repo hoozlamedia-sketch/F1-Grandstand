@@ -66,7 +66,7 @@ const SOURCES: Array<
     extract: (html: string) => {
       const out: Array<{ title: string; link: string; isoDate?: string; excerpt?: string }> = []
       // very tolerant extraction to avoid tight coupling to classnames
-      const linkRe = /<a\s+[^>]*href="([^"]+)"[^>]*?(?:aria-label="([^"]+)")?[^>]*>(.*?)<\/a>/gis
+      const linkRe = /<a\s+[^>]*href="([^"]+)"[^>]*?(?:aria-label="([^"]+)")?[^>]*>(.*?)<\/a>/gi
       const textRe = />([^<]+)</g
       let m: RegExpExecArray | null
       const seen = new Set<string>()
