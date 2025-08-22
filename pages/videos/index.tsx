@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export async function getServerSideProps() {
   const res = await fetch(
-    `https://www.googleapis.com/youtube/v3/search?key=${process.env.NEXT_PUBLIC_YT_API_KEY}&channelId=UC8cx2AAlaa1rGhAb0rXNH2Q&part=snippet,id&order=date&maxResults=50`
+    \`https://www.googleapis.com/youtube/v3/search?key=\${process.env.NEXT_PUBLIC_YT_API_KEY}&channelId=UC8cx2AAlaa1rGhAb0rXNH2Q&part=snippet,id&order=date&maxResults=50\`
   );
   const data = await res.json();
   const videos = data.items.map((v) => ({
@@ -22,19 +22,20 @@ export default function VideosPage({ videos }) {
       <p className="mb-6 text-neutral-300">
         Watch the latest Formula 1 highlights, driver interviews, press
         conferences, and behind-the-scenes content. F1 Grandstand brings you
-        exclusive YouTube coverage updated daily.
+        exclusive YouTube coverage updated daily for fans who never want to miss
+        a lap.
       </p>
       <div className="grid md:grid-cols-3 gap-6">
         {videos.map((video) => (
           <div key={video.id} className="relative group">
-            <Link href={`/videos/${video.id}`}>
+            <Link href={\`/videos/\${video.id}\`}>
               <img
                 src={video.thumbnail}
                 alt={video.title}
                 className="rounded-lg w-full"
               />
               {/* Transparent overlay */}
-              <div className="absolute inset-0 bg-black bg-opacity-20 group-hover:bg-opacity-40 transition" />
+              <div className="absolute inset-0 bg-black bg-opacity-10 group-hover:bg-opacity-30 transition" />
               {/* Gold play button */}
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-16 h-16 bg-yellow-500 rounded-full flex items-center justify-center shadow-lg">

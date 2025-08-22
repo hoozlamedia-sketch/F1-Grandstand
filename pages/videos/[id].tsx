@@ -3,7 +3,7 @@ import Head from "next/head";
 
 export async function getServerSideProps({ params }) {
   const res = await fetch(
-    `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=${params.id}&key=${process.env.NEXT_PUBLIC_YT_API_KEY}`
+    \`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=\${params.id}&key=\${process.env.NEXT_PUBLIC_YT_API_KEY}\`
   );
   const data = await res.json();
   const video = data.items[0];
@@ -30,8 +30,8 @@ export default function VideoPage({ video }) {
               description: snippet.description,
               uploadDate: snippet.publishedAt,
               thumbnailUrl: snippet.thumbnails.medium.url,
-              embedUrl: `https://www.youtube.com/embed/${video.id}`,
-              url: `https://f1-grandstand.vercel.app${router.asPath}`,
+              embedUrl: \`https://www.youtube.com/embed/\${video.id}\`,
+              url: \`https://f1-grandstand.vercel.app\${router.asPath}\`,
             }),
           }}
         />
@@ -41,7 +41,7 @@ export default function VideoPage({ video }) {
         <div className="aspect-w-16 aspect-h-9 mb-4">
           <iframe
             className="w-full h-[400px]"
-            src={`https://www.youtube.com/embed/${video.id}`}
+            src={\`https://www.youtube.com/embed/\${video.id}\`}
             title={snippet.title}
             allowFullScreen
           />
