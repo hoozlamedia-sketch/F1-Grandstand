@@ -1,52 +1,38 @@
-import { useRouter } from "next/router";
 import Head from "next/head";
 
-export async function getServerSideProps({ params }) {
+export async function getServerSideProps({ params }: any) {
   const res = await fetch(
-    \`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=\${params.id}&key=\${process.env.NEXT_PUBLIC_YT_API_KEY}\`
+    `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=${params.id}&key=${process.env.NEXT_PUBLIC_YT_API_KEY}`
   );
   const data = await res.json();
-  const video = data.items[0];
+  const video = data.items ? data.items[0] : null;
   return { props: { video } };
 }
 
-export default function VideoPage({ video }) {
-  const router = useRouter();
-  if (!video) return <p className="text-white">Video not found</p>;
-  const snippet = video.snippet;
+export default function VideoPage({ video }: any) {
+  if (!video) return <div>Video not found.</div>;
 
+  const { snippet } = video;
   return (
     <>
       <Head>
-        <title>{snippet.title} | F1 Grandstand</title>
-        <meta name="description" content={snippet.description} />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "VideoObject",
-              name: snippet.title,
-              description: snippet.description,
-              uploadDate: snippet.publishedAt,
-              thumbnailUrl: snippet.thumbnails.medium.url,
-              embedUrl: \`https://www.youtube.com/embed/\${video.id}\`,
-              url: \`https://f1-grandstand.vercel.app\${router.asPath}\`,
-            }),
-          }}
-        />
+        <title>{snippet?.title} | F1 Grandstand</title>
+        <meta name="description" content={snippet?.description?.slice(0, 150) || "F1 video"} />
       </Head>
-      <main className="max-w-4xl mx-auto p-6 text-white">
-        <h1 className="text-3xl font-bold mb-4">{snippet.title}</h1>
-        <div className="aspect-w-16 aspect-h-9 mb-4">
+      <main className="max-w-4xl mx-auto px-4 py-10 text-neutral-200">
+        <h1 className="text-3xl font-bold mb-4" style={{ color: "#f5e9c8" }}>
+          {snippet?.title}
+        </h1>
+        <div className="relative w-full aspect-video mb-6">
           <iframe
-            className="w-full h-[400px]"
-            src={\`https://www.youtube.com/embed/\${video.id}\`}
-            title={snippet.title}
+            className="w-full h-full rounded-2xl"
+            src={`https://www.youtube.com/embed/${video.id}`}
+            title={snippet?.title}
+            frameBorder="0"
             allowFullScreen
-          />
+          ></iframe>
         </div>
-        <p className="text-neutral-300">{snippet.description}</p>
+        <p className="whitespace-pre-line">{snippet?.description}</p>
       </main>
     </>
   );
