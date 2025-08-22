@@ -3,6 +3,7 @@ import Head from "next/head"
 import Link from "next/link"
 import { useRouter } from "next/router"
 import { useState } from "react"
+import Layout from "../../../components/Layout"
 import {
   getUploadsPlaylistId,
   fetchUploadsPage,
@@ -27,20 +28,19 @@ export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
   const p = Math.max(1, parseInt(String(ctx.params?.page || "1"), 10) || 1)
   const q = (ctx.query?.q ? String(ctx.query.q) : "").trim() || null
 
-  // SEARCH MODE – API required; if it fails fallback to RSS + filter
+  // SEARCH MODE – API required; fallback to RSS filter
   if (q) {
     try {
       const results = await searchChannelVideos(q, PER_PAGE, CHANNEL_ID, API_KEY)
       return { props: { page: 1, videos: results, hasNext: false, q } }
     } catch {
-      // RSS fallback search (recent items only)
       const rss = await fetchChannelRSS(CHANNEL_ID)
       const filtered = rss.filter(v => v.title.toLowerCase().includes(q.toLowerCase())).slice(0, PER_PAGE)
       return { props: { page: 1, videos: filtered, hasNext: false, q } }
     }
   }
 
-  // PAGINATION over uploads – try API first
+  // PAGINATION over uploads – API first
   try {
     const uploads = await getUploadsPlaylistId(CHANNEL_ID, API_KEY)
     const startIndex = (p - 1) * PER_PAGE
@@ -64,10 +64,9 @@ export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
       if (!token) break
     }
 
-    // If we finished exactly at a boundary and still have next token, there's a next page
     const hasNext = Boolean(lastPageNext && collected.length === PER_PAGE)
 
-    // details batch (views/duration); be tolerant
+    // Optional details (views/duration)
     let merged = collected
     try {
       const ids = collected.map(v => v.id).filter(Boolean)
@@ -75,14 +74,13 @@ export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
       merged = collected.map(v => ({ ...v, ...details[v.id] }))
     } catch { /* ignore */ }
 
-    // if user asks beyond available pages (no items and p>1), redirect to page 1
     if (!merged.length && p > 1) {
       return { redirect: { destination: "/videos/page/1", permanent: false } }
     }
 
     return { props: { page: p, videos: merged, hasNext } }
   } catch {
-    // RSS FALLBACK pagination (recent ~15 only)
+    // RSS fallback (recent ~15)
     const rss = await fetchChannelRSS(CHANNEL_ID)
     const start = (p - 1) * PER_PAGE
     const slice = rss.slice(start, start + PER_PAGE)
@@ -99,100 +97,96 @@ export default function VideosPage({ page, videos, hasNext, q }: Props) {
   const [query, setQuery] = useState(q || "")
 
   return (
-    <>
+    <Layout
+      title={q ? `Search “${q}” | F1 Grandstand Videos` : `Videos – Page ${page} | F1 Grandstand`}
+      description={
+        q
+          ? `Search results for “${q}” across F1 Grandstand uploads.`
+          : `Browse F1 Grandstand YouTube uploads – page ${page}.`
+      }
+    >
       <Head>
-        <title>{q ? `Search “${q}” | F1 Grandstand Videos` : `Videos – Page ${page} | F1 Grandstand`}</title>
-        <meta
-          name="description"
-          content={
-            q
-              ? `Search results for “${q}” across F1 Grandstand uploads.`
-              : `Browse F1 Grandstand YouTube uploads – page ${page}.`
-          }
-        />
+        {/* Keep explicit SEO tags in case Layout doesn't override them elsewhere */}
+        <meta name="robots" content="index,follow" />
       </Head>
 
-      <div className="min-h-screen bg-black text-white">
-        <header className="border-b border-neutral-800 sticky top-0 bg-black/80 backdrop-blur">
-          <div className="max-w-6xl mx-auto px-4 py-4 flex flex-wrap items-center gap-3 justify-between">
-            <Link href="/" className="text-[#f5e9c8] font-extrabold text-lg">F1 Grandstand</Link>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                const qs = new URLSearchParams()
-                if (query.trim()) qs.set("q", query.trim())
-                router.push(`/videos/page/1?${qs.toString()}`)
-              }}
-              className="flex items-center gap-2"
-            >
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search videos…"
-                className="px-3 py-2 rounded-lg bg-neutral-900 border border-neutral-700 focus:outline-none"
-              />
-              <button className="px-4 py-2 rounded-lg border border-[#f5e9c8]/30 hover:bg-[#f5e9c8]/10">
-                Search
-              </button>
-            </form>
-          </div>
-        </header>
-
-        <main className="max-w-6xl mx-auto px-4 py-8">
-          {q && <p className="text-neutral-400 mb-4">Showing results for “{q}”.</p>}
-
-          {/* Grid */}
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {videos.map((v) => (
-              <Link
-                key={v.id}
-                href={`https://www.youtube.com/watch?v=${v.id}`}
-                target="_blank"
-                className="group relative rounded-xl overflow-hidden border border-neutral-800 hover:border-neutral-600 transition"
-              >
-                <img
-                  src={v.thumbnail}
-                  alt={v.title}
-                  className="w-full aspect-video object-cover"
-                  loading="lazy"
-                />
-                {/* Softer overlay */}
-                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition" />
-                {/* Gold play button */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-14 h-14 rounded-full bg-[#f5e9c8]/90 group-hover:bg-[#f5e9c8] grid place-items-center shadow-md">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                      <path d="M8 5v14l11-7L8 5z" fill="black"/>
-                    </svg>
-                  </div>
-                </div>
-                <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/70 to-transparent">
-                  <h3 className="text-sm font-semibold">{v.title}</h3>
-                </div>
-              </Link>
-            ))}
-          </div>
-
-          {/* Pagination (Prev/Next by hasNext) */}
-          {!q && (
-            <nav className="flex items-center justify-between mt-8">
-              <Link
-                href={`/videos/page/${Math.max(1, page - 1)}`}
-                className={`px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-900 ${page === 1 ? "pointer-events-none opacity-40" : ""}`}
-              >
-                ← Prev
-              </Link>
-              <div />
-              <Link
-                href={`/videos/page/${page + 1}`}
-                className={`px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-900 ${!hasNext ? "pointer-events-none opacity-40" : ""}`}
-              >
-                Next →
-              </Link>
-            </nav>
-          )}
-        </main>
+      {/* Top utility row under the shared header: search input styled to match site */}
+      <div className="max-w-6xl mx-auto px-4 pt-6">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            const qs = new URLSearchParams()
+            if (query.trim()) qs.set("q", query.trim())
+            router.push(`/videos/page/1?${qs.toString()}`)
+          }}
+          className="flex items-center gap-2"
+        >
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search F1 Grandstand videos…"
+            className="px-3 py-2 rounded-lg bg-neutral-900 border border-neutral-700 focus:outline-none text-white placeholder-neutral-500"
+          />
+          <button className="px-4 py-2 rounded-lg border border-[#f5e9c8]/30 hover:bg-[#f5e9c8]/10 text-[#f5e9c8]">
+            Search
+          </button>
+        </form>
       </div>
-    </>
+
+      <main className="max-w-6xl mx-auto px-4 py-8">
+        {q && <p className="text-neutral-400 mb-4">Showing results for “{q}”.</p>}
+
+        {/* Grid */}
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {videos.map((v) => (
+            <Link
+              key={v.id}
+              href={`https://www.youtube.com/watch?v=${v.id}`}
+              target="_blank"
+              className="group relative rounded-xl overflow-hidden border border-neutral-800 hover:border-neutral-600 transition"
+            >
+              <img
+                src={v.thumbnail}
+                alt={v.title}
+                className="w-full aspect-video object-cover"
+                loading="lazy"
+              />
+              {/* Softer overlay */}
+              <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition" />
+              {/* Gold play button */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-14 h-14 rounded-full bg-[#f5e9c8]/90 group-hover:bg-[#f5e9c8] grid place-items-center shadow-md">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                    <path d="M8 5v14l11-7L8 5z" fill="black"/>
+                  </svg>
+                </div>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/70 to-transparent">
+                <h3 className="text-sm font-semibold">{v.title}</h3>
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        {/* Pagination (Prev/Next using hasNext) */}
+        {!q && (
+          <nav className="flex items-center justify-between mt-8">
+            <Link
+              href={`/videos/page/${Math.max(1, page - 1)}`}
+              className={`px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-900 ${page === 1 ? "pointer-events-none opacity-40" : ""}`}
+            >
+              ← Prev
+            </Link>
+            <div />
+            <Link
+              href={`/videos/page/${page + 1}`}
+              className={`px-4 py-2 rounded-lg border border-neutral-700 hover:bg-neutral-900 ${!hasNext ? "pointer-events-none opacity-40" : ""}`}
+            >
+              Next →
+            </Link>
+          </nav>
+        )}
+      </main>
+    </Layout>
   )
 }
