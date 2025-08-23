@@ -1,8 +1,7 @@
+import { ReactNode } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/router";
-import { ReactNode, useState } from "react";
 
 type LayoutProps = {
   children: ReactNode;
@@ -11,79 +10,85 @@ type LayoutProps = {
 };
 
 export default function Layout({ children, title, description }: LayoutProps) {
-  const router = useRouter();
   const pageTitle = title ? `${title} | F1 Grandstand` : "F1 Grandstand";
   const pageDesc =
     description ||
-    "Daily Formula 1 news, videos, analysis, rumours, and race updates from F1 Grandstand.";
-  const gold = "#f5e9c8";
-
-  // show text fallback if logo file not found
-  const [logoOk, setLogoOk] = useState(true);
+    "F1 Grandstand delivers fast, authoritative Formula 1 news, analysis, race results and videos.";
 
   return (
     <>
       <Head>
         <title>{pageTitle}</title>
         <meta name="description" content={pageDesc} />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta property="og:title" content={pageTitle} />
+        <meta property="og:description" content={pageDesc} />
+        <meta property="og:type" content="website" />
+        <meta name="theme-color" content="#d4b26f" />
       </Head>
 
-      <header className="sticky top-0 z-40 border-b border-neutral-900 bg-black/80 backdrop-blur">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-4">
-          <Link href="/" className="flex items-center gap-2 min-w-0">
-            {logoOk ? (
-              <span className="relative block h-6 w-6">
-                {/* Put /logo.svg or /logo.png into /public for a real logo */}
-                <Image
-                  src="/logo.svg"
-                  alt="F1 Grandstand"
-                  fill
-                  onError={() => setLogoOk(false)}
-                />
-              </span>
-            ) : (
-              <span
-                aria-hidden
-                className="inline-block h-6 w-6 rounded-md border border-neutral-700 bg-neutral-900"
+      {/* Header (no search here) */}
+      <header className="sticky top-0 z-50 border-b border-neutral-800/60 bg-black/70 backdrop-blur supports-[backdrop-filter]:bg-black/50">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 md:py-4">
+          <Link href="/" className="group inline-flex items-center gap-3">
+            <span className="relative block h-7 w-7 overflow-hidden rounded-md ring-1 ring-neutral-700/60">
+              {/* If /public/logo.svg exists it will render, otherwise the alt shows */}
+              <Image
+                src="/logo.svg"
+                alt="F1 Grandstand logo"
+                fill
+                className="object-contain"
+                sizes="28px"
+                priority
               />
-            )}
-            <span className="font-semibold truncate" style={{ color: gold }}>
+            </span>
+            <span className="text-lg font-semibold tracking-wide text-[#f5e9c8] group-hover:opacity-90">
               F1 Grandstand
             </span>
           </Link>
 
-          <nav className="ml-4 hidden sm:flex items-center gap-4">
-            <Link href="/" className="hover:opacity-80">Home</Link>
-            <Link href="/#news" className="hover:opacity-80">News</Link>
-            <Link href="/videos" className="hover:opacity-80">Videos</Link>
+          <nav aria-label="Primary" className="ml-6">
+            <ul className="flex items-center gap-6 text-sm font-medium">
+              <li>
+                <Link
+                  href="/"
+                  className="text-neutral-200 hover:text-[#f5e9c8] transition-colors"
+                >
+                  Home
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/#news"
+                  className="text-neutral-200 hover:text-[#f5e9c8] transition-colors"
+                >
+                  News
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/videos"
+                  className="text-neutral-200 hover:text-[#f5e9c8] transition-colors"
+                >
+                  Videos
+                </Link>
+              </li>
+            </ul>
           </nav>
-
-          <div className="ml-auto w-full max-w-md">
-            {/* Internal site search -> /search?q=... */}
-            <form role="search" action="/search" method="get" className="relative">
-              <input
-                type="search"
-                name="q"
-                defaultValue={typeof router.query.q === "string" ? router.query.q : ""}
-                placeholder="Search F1 news & videos..."
-                className="w-full rounded-xl bg-neutral-950 border border-neutral-800 px-4 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-[#f5e9c8]"
-              />
-              <button
-                type="submit"
-                className="absolute right-1 top-1/2 -translate-y-1/2 px-3 py-1 rounded-lg text-xs border border-[#f5e9c8]/40 hover:bg-[#f5e9c8]/10"
-                style={{ color: gold }}
-                aria-label="Search"
-              >
-                Search
-              </button>
-            </form>
-          </div>
         </div>
       </header>
 
+      {/* Main */}
       <div className="min-h-screen bg-black text-white">
-        <main>{children}</main>
+        <main className="mx-auto max-w-6xl px-4">{children}</main>
       </div>
+
+      {/* Footer */}
+      <footer className="border-t border-neutral-800/60 bg-black">
+        <div className="mx-auto max-w-6xl px-4 py-6 text-xs text-neutral-400">
+          © {new Date().getFullYear()} F1 Grandstand — Daily Formula 1 news & videos.
+        </div>
+      </footer>
     </>
   );
 }
