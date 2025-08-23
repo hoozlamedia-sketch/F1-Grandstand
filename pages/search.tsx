@@ -1,8 +1,8 @@
 import Head from "next/head";
 import Link from "next/link";
-import Layout from "@/components/Layout";
+import Layout from "../components/Layout";
 import { GetServerSideProps } from "next";
-import { searchChannelVideos, type YTVideo } from "@/lib/youtube";
+import { searchChannelVideos, type YTVideo } from "../lib/youtube";
 
 type NewsItem = { title: string; link: string; isoDate?: string; excerpt?: string; source: string };
 
