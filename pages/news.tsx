@@ -1,4 +1,6 @@
 import EditorialNote from "../components/EditorialNote";
+import Layout from "../components/Layout";
+import EditorialNote from "../components/EditorialNote";
 import EditorialNote from "../components/EditorialNote";
 import Layout from "../components/Layout"
 import EditorialNote from "@/components/EditorialNote";
