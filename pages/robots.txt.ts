@@ -1,13 +1,23 @@
-import type { NextApiRequest, NextApiResponse } from "next";
+import type { GetServerSideProps } from 'next'
 
-const BASE_URL = "https://f1-grandstand.vercel.app";
+/**
+ * Serve robots.txt as a plain text SSR response so Next.js doesn't try to prerender it.
+ * Keep this ultra-simple and fast; it's hit by crawlers a lot.
+ */
+export const getServerSideProps: GetServerSideProps = async ({ res }) => {
+  const base = process.env.NEXT_PUBLIC_SITE_URL || 'https://f1-grandstand.vercel.app'
 
-export default function handler(_req: NextApiRequest, res: NextApiResponse) {
-  const body = `User-agent: *
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+  res.write(
+`User-agent: *
 Allow: /
 
-Sitemap: ${BASE_URL}/sitemap.xml
-`;
-  res.setHeader("Content-Type", "text/plain; charset=utf-8");
-  res.status(200).send(body);
+Sitemap: ${base}/sitemap.xml
+`
+  )
+  res.end()
+  return { props: {} }
 }
+
+// This component never renders; response is written in getServerSideProps.
+export default function Robots() { return null }

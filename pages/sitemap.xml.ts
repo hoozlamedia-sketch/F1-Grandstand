@@ -1,34 +1,42 @@
-import type { NextApiRequest, NextApiResponse } from "next";
+import type { GetServerSideProps } from 'next'
 
-const BASE_URL = "https://f1-grandstand.vercel.app";
+/**
+ * Serve sitemap.xml as XML via SSR to avoid static prerender crashes.
+ * If you later generate dynamic URLs, extend the <urlset> here.
+ */
+export const getServerSideProps: GetServerSideProps = async ({ res }) => {
+  const base = process.env.NEXT_PUBLIC_SITE_URL || 'https://f1-grandstand.vercel.app'
+  const now = new Date().toISOString()
 
-function lastmodISO(d = new Date()) {
-  return d.toISOString();
-}
-
-export default function handler(_req: NextApiRequest, res: NextApiResponse) {
-  const urls = [
-    { loc: `${BASE_URL}/`,               priority: "1.0" },
-    { loc: `${BASE_URL}/#news`,          priority: "0.9" },
-    { loc: `${BASE_URL}/videos`,         priority: "0.9" },
-    { loc: `${BASE_URL}/about`,          priority: "0.6" },
-    { loc: `${BASE_URL}/sitemaps`,       priority: "0.4" },
-  ];
-
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+  const xml =
+`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls
-  .map(
-    (u) => `<url>
-  <loc>${u.loc}</loc>
-  <lastmod>${lastmodISO()}</lastmod>
-  <changefreq>hourly</changefreq>
-  <priority>${u.priority}</priority>
-</url>`
-  )
-  .join("\n")}
-</urlset>`;
+  <url>
+    <loc>${base}/</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>${base}/videos</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>${base}/about</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+</urlset>
+`
 
-  res.setHeader("Content-Type", "application/xml; charset=utf-8");
-  res.status(200).send(xml);
+  res.setHeader('Content-Type', 'application/xml; charset=utf-8')
+  res.write(xml)
+  res.end()
+  return { props: {} }
 }
+
+// This component never renders; response is written in getServerSideProps.
+export default function Sitemap() { return null }
