@@ -1,9 +1,5 @@
-import EditorialNote from "../components/EditorialNote";
 import Layout from "../components/Layout";
 import EditorialNote from "../components/EditorialNote";
-import EditorialNote from "../components/EditorialNote";
-import Layout from "../components/Layout"
-import EditorialNote from "@/components/EditorialNote";
 import type { GetStaticProps } from "next"
 import Link from "next/link"
 import { fetchAllNews, NewsItem } from "../lib/rss"
