@@ -30,6 +30,13 @@ export default function Layout({ children, title, description, canonical }: Layo
     sameAs: ["https://www.youtube.com/@F1Grandstand"]
   };
 
+  // image error fallback handler
+  const onLogoError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const el = e.currentTarget;
+    if (el.src.endsWith("/logo.svg")) return;
+    el.src = "/logo.svg";
+  };
+
   return (
     <>
       <Head>
@@ -46,12 +53,14 @@ export default function Layout({ children, title, description, canonical }: Layo
       <header className="sticky top-0 z-40 border-b border-neutral-800/60 bg-black/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
           <Link href="/" className="flex items-center gap-3" aria-label="F1 Grandstand — Home">
-            <!-- Plain img allows onError fallback reliably -->
+            {/* Plain img allows reliable client-side onError fallback */}
             <img
               src="/logo.png"
-              onError="this.onerror=null;this.src='/logo.svg';"
-              width="32" height="32" alt="F1 Grandstand logo"
-              style="border-radius:6px"
+              onError={onLogoError}
+              width={32}
+              height={32}
+              alt="F1 Grandstand logo"
+              style={{ borderRadius: 6 }}
             />
             <span className="text-lg font-extrabold tracking-tight" style={{ color: "#f5e9c8" }}>
               F1 Grandstand
