@@ -1,4 +1,4 @@
-import type { GetServerSideProps } from "next"
+import EditorialNote from "@/components/EditorialNote";import type { GetServerSideProps } from "next"
 import Head from "next/head"
 import Link from "next/link"
 import { useRouter } from "next/router"
@@ -163,6 +163,7 @@ export default function VideosPage({ page, videos, hasNext, q }: Props) {
               </div>
               <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/70 to-transparent">
                 <h3 className="text-sm font-semibold">{v.title}</h3>
+            <EditorialNote kind="video" title={v.title} channel="F1 Grandstand" publishedAt={v.publishedAt} />
               </div>
             </Link>
           ))}

@@ -1,4 +1,4 @@
-import Layout from "../components/Layout"
+import EditorialNote from "@/components/EditorialNote";import Layout from "../components/Layout"
 import type { GetStaticProps } from "next"
 import Link from "next/link"
 import { fetchAllNews, NewsItem } from "../lib/rss"
@@ -17,6 +17,7 @@ export default function News({ items }: Props) {
                 <h3 className="font-semibold text-lg leading-snug hover:underline" style={{ color: "#f5e9c8" }}>
                   {n.title}
                 </h3>
+            <EditorialNote kind="article" title={it.title} source={it.source} publishedAt={it.isoDate} />
               </a>
               <p className="text-xs text-neutral-400 mt-1">
                 {n.source} • {n.isoDate ? new Date(n.isoDate).toLocaleDateString() : ""}
