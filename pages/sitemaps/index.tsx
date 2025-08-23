@@ -6,7 +6,7 @@ export default function Sitemaps() {
     <Layout
       title="Sitemaps"
       description="F1 Grandstand sitemaps to help search engines discover our F1 News and videos."
-      canonical={`${base}/sitemaps`}
+      /sitemaps`}
     >
       <section className="mx-auto max-w-3xl py-10 space-y-6">
         <h1 className="text-3xl font-extrabold" style={{ color: "#f5e9c8" }}>Sitemaps</h1>

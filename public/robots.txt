@@ -1,3 +1,4 @@
 User-agent: *
 Allow: /
-Sitemap: https://f1grandstand.com/sitemap.xml
+
+Sitemap: https://f1-grandstand.vercel.app/sitemap.xml
