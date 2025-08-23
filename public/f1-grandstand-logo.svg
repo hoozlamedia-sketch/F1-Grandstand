@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="220" height="36" viewBox="0 0 220 36">
+  <rect width="220" height="36" fill="#0b0b0b"/>
+  <g transform="translate(10,8)">
+    <path d="M0 18 L4 0 H24 L23 4 H8 L7 8 H20 L19 12 H6 L5 18 Z" fill="#d4af37"/>
+    <text x="34" y="16" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#f5e9c8" letter-spacing="0.5">F1 GRANDSTAND</text>
+  </g>
+</svg>
