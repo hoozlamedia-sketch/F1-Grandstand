@@ -1,4 +1,4 @@
-import EditorialNote from "@/components/EditorialNote";import type { GetServerSideProps } from "next"
+import EditorialNote from "../../components/EditorialNote";import type { GetServerSideProps } from "next"
 import Head from "next/head"
 import Link from "next/link"
 import { useRouter } from "next/router"

@@ -1,4 +1,4 @@
-import EditorialNote from "@/components/EditorialNote";import Layout from '../components/Layout'
+import EditorialNote from "../components/EditorialNote";import Layout from '../components/Layout'
 import Head from 'next/head'
 import Link from 'next/link'
 import { Play, Newspaper, Clock } from 'lucide-react'

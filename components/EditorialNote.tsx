@@ -45,7 +45,6 @@ export default function EditorialNote({
       drivers.length ? drivers.join(" & ")
       : teams.length ? teams.join(" & ")
       : "the F1 grid";
-
     const when = publishedAt ? ` (${new Date(publishedAt).toLocaleDateString()})` : "";
 
     if (kind === "video") {
@@ -59,9 +58,5 @@ export default function EditorialNote({
     }
   }, [kind, title, source, channel, publishedAt, maxWords]);
 
-  return (
-    <p className="mt-2 text-sm leading-6 text-neutral-300">
-      {text}
-    </p>
-  );
+  return <p className="mt-2 text-sm leading-6 text-neutral-300">{text}</p>;
 }
