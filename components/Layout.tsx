@@ -1,83 +1,81 @@
 import Head from "next/head";
 import Link from "next/link";
-import Image from "next/image";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 
-type LayoutProps = {
+type Props = {
   children: ReactNode;
   title?: string;
   description?: string;
   canonical?: string;
+  noIndex?: boolean;
 };
 
-export default function Layout({ children, title, description, canonical }: LayoutProps) {
-  const siteName = "F1 Grandstand";
-  const pageTitle = title ? `${title} | ${siteName}` : `${siteName} | F1 News, Videos & Analysis`;
-  const pageDesc =
-    description ||
-    "F1 News from F1 Grandstand: daily live Formula 1 updates, analysis, team and driver stories, and videos. Follow the latest from Ferrari, Red Bull, Mercedes, McLaren and more.";
-
-  const canonicalUrl = canonical || process.env.NEXT_PUBLIC_SITE_URL || "https://f1-grandstand.vercel.app";
+export default function Layout({
+  children,
+  title,
+  description,
+  canonical,
+  noIndex,
+}: Props) {
+  const site = "F1 Grandstand";
+  const fullTitle = title ? `${title} | ${site}` : `${site} — Daily F1 News & Videos`;
+  const desc =
+    description ??
+    "F1 Grandstand brings daily F1 news, live updates, race analysis and videos. Your one-stop F1 News hub.";
 
   return (
     <>
       <Head>
-        <title>{pageTitle}</title>
-        <meta name="description" content={pageDesc} />
-        <link rel="canonical" href={canonicalUrl} />
-        <meta property="og:title" content={pageTitle} />
-        <meta property="og:description" content={pageDesc} />
-        <meta property="og:site_name" content={siteName} />
-        <meta name="theme-color" content="#0b0b0b" />
+        <title>{fullTitle}</title>
+        <meta name="description" content={desc} />
+        <meta name="keywords" content="F1 News, Formula 1 news, F1 videos, Formula One, Grand Prix, qualifying, results" />
+        <meta property="og:title" content={fullTitle} />
+        <meta property="og:description" content={desc} />
+        <meta property="og:type" content="website" />
+        {canonical && <link rel="canonical" href={canonical} />}
+        {noIndex && <meta name="robots" content="noindex,nofollow" />}
       </Head>
 
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-neutral-800/70 bg-black/75 backdrop-blur supports-[backdrop-filter]:bg-black/60">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link href="/" className="flex items-center gap-3 group">
-            <Image
-              src="/f1-grandstand-logo.svg"
+      <header className="sticky top-0 z-50 border-b border-neutral-800 bg-black/80 backdrop-blur supports-[backdrop-filter]:bg-black/60">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+          <Link href="/" className="flex items-center gap-3">
+            {/* Tries new PNG -> fallback PNG -> fallback SVG */}
+            <img
+              src="/F1-GRANDSTAND-LOGO-NEW.png"
+              onError={(e) => {
+                const img = e.currentTarget as HTMLImageElement;
+                img.onerror = null;
+                img.src = "/logo.png";
+                setTimeout(() => {
+                  if (!img.complete || img.naturalWidth === 0) img.src = "/logo.svg";
+                }, 50);
+              }}
               alt="F1 Grandstand logo"
-              width={176}
-              height={28}
-              priority
-              className="h-7 w-auto"
+              width={34}
+              height={34}
+              className="h-8 w-8 rounded-full ring-1 ring-[#d4b46a]/40"
             />
-            <span className="sr-only">F1 Grandstand</span>
+            <span className="text-sm font-bold tracking-wide text-[#f5e9c8]">F1 Grandstand</span>
           </Link>
 
-          <nav className="flex items-center gap-2">
-            <Link
-              href="/"
-              className="rounded-xl px-3 py-2 text-sm font-semibold text-neutral-200 hover:text-white hover:bg-neutral-800/60 transition"
-            >
-              Home
-            </Link>
-            <Link
-              href="/videos"
-              className="rounded-xl px-3 py-2 text-sm font-semibold text-neutral-200 hover:text-white hover:bg-neutral-800/60 transition"
-            >
-              Videos
-            </Link>
-            <Link
-              href="/about"
-              className="rounded-xl px-3 py-2 text-sm font-semibold text-neutral-200 hover:text-white hover:bg-neutral-800/60 transition"
-            >
-              About
-            </Link>
+          {/* Simple nav (no search in header) */}
+          <nav className="flex items-center gap-5 text-sm">
+            <Link className="text-neutral-300 hover:text-[#d4b46a] transition" href="/">Home</Link>
+            <Link className="text-neutral-300 hover:text-[#d4b46a] transition" href="/#news">News</Link>
+            <Link className="text-neutral-300 hover:text-[#d4b46a] transition" href="/videos">Videos</Link>
+            <Link className="text-neutral-300 hover:text-[#d4b46a] transition" href="/about">About</Link>
+            <Link className="text-neutral-300 hover:text-[#d4b46a] transition" href="/sitemap">Sitemap</Link>
           </nav>
         </div>
       </header>
 
-      {/* Main */}
-      <main className="min-h-screen bg-black text-neutral-100">
-        {children}
-      </main>
+      <main className="min-h-screen bg-black text-neutral-100">{children}</main>
 
       {/* Footer */}
-      <footer className="border-t border-neutral-800/70 bg-black">
-        <div className="mx-auto max-w-6xl px-4 py-6 text-sm text-neutral-400">
-          © {new Date().getFullYear()} {siteName}. Daily F1 News & Videos.
+      <footer className="border-t border-neutral-800 bg-neutral-950">
+        <div className="mx-auto max-w-6xl px-4 py-6 text-xs text-neutral-400">
+          © {new Date().getFullYear()} F1 Grandstand — Daily F1 News & Videos
         </div>
       </footer>
     </>
