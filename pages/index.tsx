@@ -231,7 +231,7 @@ export default function Home({ news, featured, videosSeo }: Props) {
       <section id="videos" className="max-w-6xl mx-auto px-4 py-12">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl md:text-3xl font-extrabold" style={{ color: '#f5e9c8' }}>Latest Videos</h2>
-              <EditorialNote kind="article" title={(it?.title||item?.title)} source={(it?.source||item?.source)} publishedAt={(it?.isoDate||item?.isoDate)} />
+              <EditorialNote kind="article" title={(item.title||item?.title)} source={(item.source||item?.source)} publishedAt={(item.isoDate||item?.isoDate)} />
           <a href="https://www.youtube.com/@F1Grandstand" target="_blank" className="inline-flex items-center gap-2" style={{ color: '#d4b36c' }}>
             Visit Channel
           </a>
@@ -245,7 +245,7 @@ export default function Home({ news, featured, videosSeo }: Props) {
               </div>
               <div className="p-4">
                 <h3 className="font-semibold leading-snug line-clamp-2">{v.title}</h3>
-              <EditorialNote kind="article" title={(it?.title||item?.title)} source={(it?.source||item?.source)} publishedAt={(it?.isoDate||item?.isoDate)} />
+              <EditorialNote kind="article" title={(item.title||item?.title)} source={(item.source||item?.source)} publishedAt={(item.isoDate||item?.isoDate)} />
                 {v.publishedAt && (
                   <p className="text-xs text-neutral-400 mt-1 inline-flex items-center gap-1">
                     <Clock className="w-3 h-3" /> {new Date(v.publishedAt).toLocaleDateString()}
@@ -260,7 +260,7 @@ export default function Home({ news, featured, videosSeo }: Props) {
       {/* News */}
       <section id="news" className="max-w-6xl mx-auto px-4 pb-16">
         <h2 className="text-2xl md:text-3xl font-extrabold mb-6" style={{ color: '#f5e9c8' }}>Latest F1 News</h2>
-              <EditorialNote kind="article" title={(it?.title||item?.title)} source={(it?.source||item?.source)} publishedAt={(it?.isoDate||item?.isoDate)} />
+              <EditorialNote kind="article" title={(item.title||item?.title)} source={(item.source||item?.source)} publishedAt={(item.isoDate||item?.isoDate)} />
         <NewsGrid items={clientNews.slice(0, 12)} />
         <div className="mt-8 text-center">
           <Link href="/news" className="inline-block rounded-2xl px-5 py-3" style={{ backgroundColor: '#181818', border: '1px solid #2a2a2a' }}>
@@ -321,7 +321,7 @@ function NewsGrid({ items }: { items: NewsItem[] }) {
             <h3 className="font-semibold text-lg leading-snug hover:underline line-clamp-2" style={{ color: '#f5e9c8' }}>
               {n.title}
             </h3>
-              <EditorialNote kind="article" title={(it?.title||item?.title)} source={(it?.source||item?.source)} publishedAt={(it?.isoDate||item?.isoDate)} />
+              <EditorialNote kind="article" title={(item.title||item?.title)} source={(item.source||item?.source)} publishedAt={(item.isoDate||item?.isoDate)} />
           </a>
           <p className="text-xs text-neutral-400 mt-1">
             {formatDate(n.isoDate)} • {n.source}
