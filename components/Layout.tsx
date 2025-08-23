@@ -1,7 +1,8 @@
 import Head from "next/head";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/router";
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 
 type LayoutProps = {
   children: ReactNode;
@@ -17,6 +18,9 @@ export default function Layout({ children, title, description }: LayoutProps) {
     "Daily Formula 1 news, videos, analysis, rumours, and race updates from F1 Grandstand.";
   const gold = "#f5e9c8";
 
+  // show text fallback if logo file not found
+  const [logoOk, setLogoOk] = useState(true);
+
   return (
     <>
       <Head>
@@ -26,12 +30,24 @@ export default function Layout({ children, title, description }: LayoutProps) {
 
       <header className="sticky top-0 z-40 border-b border-neutral-900 bg-black/80 backdrop-blur">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-4">
-          <Link href="/" className="flex items-center gap-2">
-            <span
-              aria-hidden
-              className="inline-block h-6 w-6 rounded-md border border-neutral-700 bg-neutral-900"
-            />
-            <span className="font-semibold" style={{ color: gold }}>
+          <Link href="/" className="flex items-center gap-2 min-w-0">
+            {logoOk ? (
+              <span className="relative block h-6 w-6">
+                {/* Put /logo.svg or /logo.png into /public for a real logo */}
+                <Image
+                  src="/logo.svg"
+                  alt="F1 Grandstand"
+                  fill
+                  onError={() => setLogoOk(false)}
+                />
+              </span>
+            ) : (
+              <span
+                aria-hidden
+                className="inline-block h-6 w-6 rounded-md border border-neutral-700 bg-neutral-900"
+              />
+            )}
+            <span className="font-semibold truncate" style={{ color: gold }}>
               F1 Grandstand
             </span>
           </Link>
@@ -43,7 +59,7 @@ export default function Layout({ children, title, description }: LayoutProps) {
           </nav>
 
           <div className="ml-auto w-full max-w-md">
-            {/* IMPORTANT: site-internal search (GET /search?q=...) */}
+            {/* Internal site search -> /search?q=... */}
             <form role="search" action="/search" method="get" className="relative">
               <input
                 type="search"
