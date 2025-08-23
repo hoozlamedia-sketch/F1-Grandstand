@@ -7,32 +7,32 @@ type LayoutProps = {
   children: ReactNode;
   title?: string;
   description?: string;
+  canonical?: string;
 };
 
-export default function Layout({ children, title, description }: LayoutProps) {
-  const pageTitle = title ? `${title} | F1 Grandstand` : "F1 Grandstand";
+export default function Layout({ children, title, description, canonical }: LayoutProps) {
+  const siteName = "F1 Grandstand";
+  const pageTitle = title ? `${title} | ${siteName}` : `${siteName} – F1 News, Results & Video`;
   const pageDesc =
     description ||
-    "F1 Grandstand delivers fast, authoritative Formula 1 news, analysis, race results and videos.";
+    "F1 Grandstand: fast, authoritative F1 News — race results, driver updates, team rumours, and videos.";
 
   return (
     <>
       <Head>
         <title>{pageTitle}</title>
         <meta name="description" content={pageDesc} />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {canonical && <link rel="canonical" href={canonical} />}
         <meta property="og:title" content={pageTitle} />
         <meta property="og:description" content={pageDesc} />
         <meta property="og:type" content="website" />
         <meta name="theme-color" content="#d4b26f" />
       </Head>
 
-      {/* Header (no search here) */}
       <header className="sticky top-0 z-50 border-b border-neutral-800/60 bg-black/70 backdrop-blur supports-[backdrop-filter]:bg-black/50">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 md:py-4">
-          <Link href="/" className="group inline-flex items-center gap-3">
-            <span className="relative block h-7 w-7 overflow-hidden rounded-md ring-1 ring-neutral-700/60">
-              {/* If /public/logo.svg exists it will render, otherwise the alt shows */}
+          <Link href="/" className="group inline-flex items-center gap-3" aria-label="Go to F1 Grandstand home">
+            <span className="relative block h-7 w-7 overflow-hidden rounded-md ring-1 ring-neutral-700/60 bg-black">
               <Image
                 src="/logo.svg"
                 alt="F1 Grandstand logo"
@@ -47,43 +47,22 @@ export default function Layout({ children, title, description }: LayoutProps) {
             </span>
           </Link>
 
-          <nav aria-label="Primary" className="ml-6">
+          <nav aria-label="Primary">
             <ul className="flex items-center gap-6 text-sm font-medium">
-              <li>
-                <Link
-                  href="/"
-                  className="text-neutral-200 hover:text-[#f5e9c8] transition-colors"
-                >
-                  Home
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/#news"
-                  className="text-neutral-200 hover:text-[#f5e9c8] transition-colors"
-                >
-                  News
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/videos"
-                  className="text-neutral-200 hover:text-[#f5e9c8] transition-colors"
-                >
-                  Videos
-                </Link>
-              </li>
+              <li><Link className="text-neutral-200 hover:text-[#f5e9c8] transition-colors" href="/">Home</Link></li>
+              <li><Link className="text-neutral-200 hover:text-[#f5e9c8] transition-colors" href="/#news">News</Link></li>
+              <li><Link className="text-neutral-200 hover:text-[#f5e9c8] transition-colors" href="/videos">Videos</Link></li>
+              <li><Link className="text-neutral-200 hover:text-[#f5e9c8] transition-colors" href="/about">About</Link></li>
+              <li><Link className="text-neutral-200 hover:text-[#f5e9c8] transition-colors" href="/sitemaps">Sitemaps</Link></li>
             </ul>
           </nav>
         </div>
       </header>
 
-      {/* Main */}
       <div className="min-h-screen bg-black text-white">
         <main className="mx-auto max-w-6xl px-4">{children}</main>
       </div>
 
-      {/* Footer */}
       <footer className="border-t border-neutral-800/60 bg-black">
         <div className="mx-auto max-w-6xl px-4 py-6 text-xs text-neutral-400">
           © {new Date().getFullYear()} F1 Grandstand — Daily Formula 1 news & videos.
