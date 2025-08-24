@@ -34,7 +34,8 @@ type Props = {
 
 const CHANNEL_ID = 'UCh31mRik5zu2JNIC-oUCBjg'
 
-/** Lite YouTube: show thumbnail + play; load iframe only on click */
+/** Lite YouTube: show thumbnail + play; import Link from "next/link";
+load iframe only on click */
 function LiteYouTube({ id, title, thumbnail }: { id: string; title: string; thumbnail?: string | null }) {
   const [playing, setPlaying] = useState(false)
   if (playing) {
@@ -179,7 +180,6 @@ export default function Home({ news, featured, videosSeo }: Props) {
                 </p>
                 <a
                   href={`https://www.youtube.com/watch?v=${featured?.id || ''}`}
-                  target="_blank"
                   rel="noopener"
                   className="mt-2 inline-block rounded-2xl px-4 py-2 text-sm font-semibold"
                   style={{ backgroundColor: '#d4b36c', color: '#0c0c0c' }}
@@ -230,10 +230,8 @@ export default function Home({ news, featured, videosSeo }: Props) {
       {/* Videos (static, from server) */}
       <section id="videos" className="max-w-6xl mx-auto px-4 py-12">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl md:text-3xl font-extrabold" style={{ color: '#f5e9c8' }}>Latest Videos</h2>
-          <a href="https://www.youtube.com/@F1Grandstand" target="_blank" className="inline-flex items-center gap-2" style={{ color: '#d4b36c' }}>
-            Visit Channel
-          </a>
+          <h2 className="text-2xl md:text-3xl font-extrabold" style={{ color: '#f5e9c8' }}>Latest F1 News Videos</h2>
+          <a href="https://www.youtube.com/@F1Grandstand" rel="noopener noreferrer" className="inline-block rounded bg-red-600 px-4 py-2 text-white font-semibold shadow hover:bg-red-700 transition">Visit the F1 Grandstand YouTube Channel</a>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -314,7 +312,7 @@ function NewsGrid({ items }: { items: NewsItem[] }) {
     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
       {items.map((n, idx) => (
         <article key={idx} className="p-5 rounded-3xl" style={{ backgroundColor: '#0f0f0f', border: '1px solid #2a2a2a' }}>
-          <a href={n.link} target="_blank" rel="noreferrer" className="block">
+          <a href={n.link} rel="noreferrer" className="block">
             <h3 className="font-semibold text-lg leading-snug hover:underline line-clamp-2" style={{ color: '#f5e9c8' }}>
               {n.title}
             </h3>
@@ -323,7 +321,7 @@ function NewsGrid({ items }: { items: NewsItem[] }) {
             {formatDate(n.isoDate)} • {n.source}
           </p>
           {n.excerpt && <p className="text-sm text-neutral-300 mt-3">{n.excerpt}…</p>}
-          <a className="text-sm inline-block mt-3" style={{ color: '#d4b36c' }} href={n.link} target="_blank" rel="noopener">
+          <a className="text-sm inline-block mt-3" style={{ color: '#d4b36c' }} href={n.link} rel="noopener">
             Read more →
           </a>
         </article>

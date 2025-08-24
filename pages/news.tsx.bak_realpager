@@ -1,0 +1,98 @@
+import NewsPager from "../components/NewsPager";
+import Seo from "../components/Seo";
+import Layout from "../components/Layout"
+import type { GetStaticProps } from "next"
+import Link from "next/link"
+import { fetchAllNews, NewsItem } from "../lib/rss"
+
+type Props = { items: NewsItem[] }
+
+export default function News({ items }: Props) {
+  return (
+    <Seo title="F1 News — Latest Formula 1 News & Videos | F1 Grandstand" description="Daily F1 news: race results, driver quotes, analysis, and videos. Updated throughout the day by F1 Grandstand." canonical="https://f1-grandstand.com/news" ogImage="/og-default.jpg" extraJsonLd={__NEWS_JSONLD((items || news || data || []))} />
+<Layout title="F1 News" description="Latest Formula 1 news from PlanetF1 and RacingNews365.">
+      <section className="mx-auto max-w-6xl px-4 py-12 space-y-6">
+        <h1 className="text-3xl font-extrabold" style={{ color: "#f5e9c8" }}>Latest F1 News</h1>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {items.map((n, idx) => (
+            <article key={idx} className="p-5 rounded-3xl" style={{ backgroundColor: "#0f0f0f", border: "1px solid #2a2a2a" }}>
+              <a href={n.link} target="_blank" rel="noopener">
+                <h3 className="font-semibold text-lg leading-snug hover:underline" style={{ color: "#f5e9c8" }}>
+                  {n.title}
+                </h3>
+              </a>
+              <p className="text-xs text-neutral-400 mt-1">
+                {n.source} • {n.isoDate ? new Date(n.isoDate).toLocaleDateString() : ""}
+              </p>
+              {n.excerpt && <p className="text-sm text-neutral-300 mt-3">{n.excerpt}…</p>}
+            </article>
+          ))}
+        </div>
+      </section>
+      <NewsPager />
+</Layout>
+  )
+}
+
+export const getStaticProps: GetStaticProps<Props> = async () => {
+  const items = await fetchAllNews(30)
+  return { props: { items }, revalidate: 300 }
+}
+
+/* === Injected: SEO-friendly Pager for News (Older/Newer) === */
+function NewsPager() {
+  const router = useRouter();
+  const pageParam = Array.isArray(router.query.page)
+    ? router.query.page[0]
+    : router.query.page;
+  const page = Math.max(1, Number(pageParam || 1));
+
+  const gold = "#f5e9c8";
+
+  const prevHref = page > 1 ? `/news?page=${page - 1}` : null;
+  const nextHref = `/news?page=${page + 1}`;
+
+  return (
+    <nav
+      aria-label="F1 News pagination"
+      className="mt-10 flex items-center justify-between gap-4"
+    >
+      <div>
+        {prevHref ? (
+          <Link
+            href={prevHref}
+            rel="prev"
+            aria-label="Older F1 News"
+            className="inline-block rounded border px-4 py-2 font-semibold transition"
+            style={{ borderColor: gold, color: gold }}
+          >
+            ← Older F1 News
+          </Link>
+        ) : (
+          <span
+            aria-disabled="true"
+            className="inline-block rounded border px-4 py-2 opacity-40 cursor-not-allowed"
+            style={{ borderColor: gold, color: gold }}
+          >
+            ← Older F1 News
+          </span>
+        )}
+      </div>
+
+      <div>
+        <Link
+          href={nextHref}
+          rel="next"
+          aria-label="Newer F1 News"
+          className="inline-block rounded px-4 py-2 font-semibold shadow transition"
+          style={{ backgroundColor: gold, color: "#0e0e0e" }}
+        >
+          Newer F1 News →
+        </Link>
+      </div>
+    </nav>
+  );
+}
+/* === End Injected === */
+
+// pager inserted before </Layout>

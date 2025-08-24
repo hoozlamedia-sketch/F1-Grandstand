@@ -1,0 +1,213 @@
+import type { GetServerSideProps } from "next"
+import Head from "next/head"
+import Link from "next/link"
+import { useRouter } from "next/router"
+import { useState } from "react"
+import Layout from "../../../components/Layout"
+import {
+  getUploadsPlaylistId,
+  fetchUploadsPage,
+  getVideoDetails,
+  searchChannelVideos,
+  fetchChannelRSS,
+  type YTVideo,
+} from "../../../lib/youtube"
+
+const PER_PAGE = 18
+const CHANNEL_ID = process.env.YT_CHANNEL_ID || "UCh31mRik5zu2JNIC-oUCBjg"
+const API_KEY = process.env.YT_API_KEY || process.env.NEXT_PUBLIC_YT_API_KEY || undefined
+
+type Props = {
+  page: number
+  videos: YTVideo[]
+  hasNext: boolean
+  q?: string | null
+  mode: "api" | "rss" | "search"
+}
+
+export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
+  const p = Math.max(1, parseInt(String(ctx.params?.page || "1"), 10) || 1)
+  const q = (ctx.query?.q ? String(ctx.query.q) : "").trim() || null
+
+  // SEARCH MODE
+  if (q) {
+    try {
+      const results = await searchChannelVideos(q, PER_PAGE, CHANNEL_ID, API_KEY)
+      return { props: { page: 1, videos: results, hasNext: false, q, mode: "search" } }
+    } catch {
+      const rss = await fetchChannelRSS(CHANNEL_ID)
+      const filtered = rss.filter(v => v.title.toLowerCase().includes(q.toLowerCase())).slice(0, PER_PAGE)
+      return { props: { page: 1, videos: filtered, hasNext: false, q, mode: "rss" } }
+    }
+  }
+
+  // PAGINATION over uploads – API first
+  try {
+    const uploads = await getUploadsPlaylistId(CHANNEL_ID, API_KEY)
+    const startIndex = (p - 1) * PER_PAGE
+
+    let cursor = 0
+    let token: string | undefined
+    let collected: YTVideo[] = []
+    let lastPageNext: string | undefined
+
+    while (collected.length < PER_PAGE) {
+      const page = await fetchUploadsPage(uploads, 50, token, API_KEY)
+      token = page.nextPageToken
+      lastPageNext = token
+      for (const v of page.items) {
+        if (cursor >= startIndex && collected.length < PER_PAGE) {
+          collected.push(v)
+        }
+        cursor++
+        if (collected.length >= PER_PAGE) break
+      }
+      if (!token) break
+    }
+
+    const hasNext = Boolean(lastPageNext && collected.length === PER_PAGE)
+
+    // Optional details (views/duration)
+    let merged = collected
+    try {
+      const ids = collected.map(v => v.id).filter(Boolean)
+      const details = await getVideoDetails(ids, API_KEY)
+      merged = collected.map(v => ({ ...v, ...details[v.id] }))
+    } catch { /* ignore */ }
+
+    if (!merged.length && p > 1) {
+      // nothing beyond last page; redirect back to first
+      return { redirect: { destination: "/videos/page/1", permanent: false } }
+    }
+
+    return { props: { page: p, videos: merged, hasNext, mode: "api" } }
+  } catch {
+    // RSS fallback (~15 recent)
+    const rss = await fetchChannelRSS(CHANNEL_ID)
+    const start = (p - 1) * PER_PAGE
+    const slice = rss.slice(start, start + PER_PAGE)
+    const hasNext = rss.length > start + PER_PAGE
+    if (!slice.length && p > 1) {
+      return { redirect: { destination: "/videos/page/1", permanent: false } }
+    }
+    return { props: { page: p, videos: slice, hasNext, mode: "rss" } }
+  }
+}
+
+export default function VideosPage({ page, videos, hasNext, q, mode }: Props) {
+  const router = useRouter()
+  const [query, setQuery] = useState(q || "")
+  const gold = "#f5e9c8"
+
+  const prevHref = `/videos/page/${Math.max(1, page - 1)}${q ? `?q=${encodeURIComponent(q)}` : ""}`
+  const nextHref = `/videos/page/${page + 1}${q ? `?q=${encodeURIComponent(q)}` : ""}`
+
+  return (
+    <Layout
+      title={q ? `F1 News Videos — Search “${q}” | F1 Grandstand` : `F1 News Videos — Page ${page} | F1 Grandstand`}
+      description={
+        q
+          ? `Search results for “${q}” across F1 Grandstand uploads.`
+          : `Browse F1 Grandstand YouTube uploads – page ${page}.`
+      }
+    >
+      <Head>
+        <meta name="robots" content="index,follow" />
+        {page > 1 && !q && <link rel="prev" href={prevHref} />}
+        {!q && hasNext && <link rel="next" href={nextHref} />}
+      </Head>
+
+      {/* Top utility row: search */}
+      <div className="max-w-6xl mx-auto px-4 pt-6">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            const qs = new URLSearchParams()
+            if (query.trim()) qs.set("q", query.trim())
+            router.push(`/videos/page/1?${qs.toString()}`)
+          }}
+          className="flex items-center gap-2"
+        >
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search F1 Grandstand videos…"
+            className="px-3 py-2 rounded-lg bg-neutral-900 border border-neutral-700 focus:outline-none text-white placeholder-neutral-500"
+          />
+          <button className="px-4 py-2 rounded-lg border border-[#f5e9c8]/30 hover:bg-[#f5e9c8]/10 text-[#f5e9c8]">
+            Search
+          </button>
+        </form>
+      </div>
+
+      <main className="max-w-6xl mx-auto px-4 py-8">
+        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-6" style={{ color: gold }}>
+          F1 News Videos
+        </h1>
+        {mode !== "api" && !q && (
+          <p className="text-xs text-neutral-400 mb-4">
+            Showing recent uploads via RSS fallback (limited). Add a valid YouTube Data API key for full pagination.
+          </p>
+        )}
+
+        {/* Grid */}
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {videos.map((v) => (
+            <Link
+              key={v.id}
+              href={`https://www.youtube.com/watch?v=${v.id}`}
+              target="_blank"
+              className="group relative rounded-xl overflow-hidden border border-neutral-800 hover:border-neutral-600 transition"
+            >
+              <img src={v.thumbnail} alt={v.title} className="w-full aspect-video object-cover" loading="lazy" />
+              <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-14 h-14 rounded-full" style={{ backgroundColor: gold }} />
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition">
+                <h3 className="text-sm font-semibold">{v.title}</h3>
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        {/* Pagination (SEO-friendly, gold) */}
+        {!q && (
+          <nav className="flex items-center justify-between mt-8" aria-label="F1 Videos pagination">
+            <Link
+              href={prevHref}
+              rel="prev"
+              aria-label="Newer F1 News Videos"
+              className={`px-4 py-2 rounded-lg font-semibold shadow transition ${page === 1 ? "pointer-events-none opacity-40" : ""}`}
+              style={{ backgroundColor: gold, color: "#0e0e0e" }}
+            >
+              Newer F1 News Videos →
+            </Link>
+
+            <div />
+
+            {hasNext ? (
+              <Link
+                href={nextHref}
+                rel="next"
+                aria-label="Older F1 News Videos"
+                className="px-4 py-2 rounded-lg border font-semibold transition"
+                style={{ borderColor: gold, color: gold }}
+              >
+                ← Older F1 News Videos
+              </Link>
+            ) : (
+              <span
+                aria-disabled="true"
+                className="px-4 py-2 rounded-lg border font-semibold opacity-40 cursor-not-allowed"
+                style={{ borderColor: gold, color: gold }}
+              >
+                ← Older F1 News Videos
+              </span>
+            )}
+          </nav>
+        )}
+      </main>
+    </Layout>
+  )
+}

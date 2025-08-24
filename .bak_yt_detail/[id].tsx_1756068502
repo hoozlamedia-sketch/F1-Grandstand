@@ -1,0 +1,62 @@
+import Head from "next/head";
+import Link from "next/link";
+import Layout from "../../components/Layout";
+
+export async function getServerSideProps({ params }: { params: { id?: string } }) {
+  const id = params?.id;
+  if (!id) return { notFound: true };
+  return { props: { id } };
+}
+
+export default function VideoPage({ id }: { id: string }) {
+  const title = "Watch on F1 Grandstand";
+  const desc = "F1 Grandstand video";
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "VideoObject",
+    name: "F1 Grandstand video",
+    description: "Latest Formula 1 news video",
+    embedUrl: `https://www.youtube.com/embed/${id}`,
+    contentUrl: `https://www.youtube.com/watch?v=${id}`,
+    publisher: {
+      "@type": "Organization",
+      name: "F1 Grandstand",
+      logo: {
+        "@type": "ImageObject",
+        url: "https://www.f1grandstand.com/F1-GRANDSTAND-LOGO-NEW.png",
+      },
+    },
+  };
+
+  return (
+    <Layout title={title} description={desc} canonical={`https://www.youtube.com/watch?v=${id}`}>
+      <Head>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      </Head>
+
+      <main className="max-w-5xl mx-auto px-4 py-10">
+        <Link
+          href="/videos"
+          className="inline-block rounded-xl px-4 py-2 text-sm font-semibold mb-4"
+          style={{ backgroundColor: "#181818", border: "1px solid #2a2a2a" }}
+        >
+          ← All Videos
+        </Link>
+
+        <div
+          className="aspect-video rounded-3xl overflow-hidden ring-2 shadow-lg"
+          style={{ borderColor: "#d4b36c" }}
+        >
+          <iframe
+            title="Video player"
+            className="w-full h-full"
+            src={`https://www.youtube.com/embed/${id}`}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+          />
+        </div>
+      </main>
+    </Layout>
+  );
+}
