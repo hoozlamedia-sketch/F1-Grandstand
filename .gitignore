@@ -1,1 +1,10 @@
-.vercel
+node_modules/
+.next/
+.vercel/
+.env*
+.DS_Store
+*.tgz
+*.zip
+*.bak*
+.bak_*/
+_trash/
